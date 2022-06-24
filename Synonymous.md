@@ -2,6 +2,12 @@
 
 This markdown records the process of repeating the analysis from this [article](https://www.nature.com/articles/s41586-022-04823-w).
 
+## Preparation
+
+```bash
+pip install xlsx2csv
+```
+
 ## Seq files
 
 All data were downloaded from the Bioproject [PRJNA750109](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA750109).
@@ -34,4 +40,51 @@ aria2c -j 4 -x 2 -s 2 --file-allocation=none -c -i ena_info.ftp.txt
 
 md5sum --check ena_info.md5.txt
 # check if there was any mistake during downloading
+```
+
+```bash
+mkdir -p /mnt/e/data/yeast/info
+cd /mnt/e/data/yeast
+
+# get all DNA and RNA seq files
+cat ../ena/ena_info.csv |
+    mlr --icsv --otsv cat |
+    tsv-select -H -f name,srx,srr |
+    tsv-filter -H --regex 'name:\.t\d' |
+    sed 's/\./_/g' \
+    > gene_time.tsv
+
+xlsx2csv seq_primer.xlsx |
+    sed 's/\s/_/g' |
+    mlr --icsv --otsv cat \
+    > seq_primer.tsv
+
+cat seq_primer.tsv |
+    cut -f 1 |
+    cut -d '_' -f 1 |
+    sort | uniq \
+    > gene.lst
+
+cat gene.lst |
+    parallel -j 1 -k '
+    echo "==> Trim {}"
+    Fp=$(cat seq_primer.tsv | tsv-filter --str-eq 1:${}_amp_F | cut -f 2)
+    Rp=$(cat seq_primer.tsv | tsv-filter --str-eq 1:${}_amp_R | cut -f 2)
+    
+    for file=$(cat gene_time.tsv | grep {} | cut -f 3)
+    do
+        trim_galore ../ena/${file}_1
+    
+    '
+```
+
+## Trimming
+
+According to the article, Illumina 
+
+```bash
+mkdir /mnt/e/data/yeast/trim
+cd /mnt/e/data/yeast/ena
+
+
 ```
