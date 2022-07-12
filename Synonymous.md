@@ -8,6 +8,31 @@ This markdown records the process of repeating the analysis from this [article](
 pip install xlsx2csv
 ```
 
+- AmpUMI
+
+```bash
+cd ~/share
+git clone https://github.com/pinellolab/AmpUMI.git
+cd AmpUMI
+
+vim AmpUMI.py
+# add shebang line below:
+#!/usr/bin/env python3
+#save
+
+python3 setup.py build
+python3 setup.py install
+sudo cp AmpUMI.py /usr/local/bin
+
+cd /usr/local/bin
+sudo chmod +x AmpUMI.py
+
+AmpUMI.py -h
+#usage: AmpUMI.py [-h] [--version] {Process,Collision,Distortion,CollisionNumber} ...
+#
+#AmpUMI - A toolkit for designing and analyzing amplicon sequencing experiments using unique molecular identifiers
+```
+
 ## Seq files
 
 All data were downloaded from the Bioproject [PRJNA750109](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA750109).
