@@ -84,9 +84,15 @@ md5sum --check ena_info.md5.txt
 # check if there was any mistake during downloading
 ```
 
+## Info
+
+`mkdir -p ~/data/yeast/info`
+
+Download all supplementary files and tables from the [website](https://www.nature.com/articles/s41586-022-04823-w) and save them into info dir.
+
 ```bash
-mkdir -p /mnt/e/data/yeast/info
-cd /mnt/e/data/yeast
+mkdir -p ~/data/yeast/info
+cd ~/data/yeast
 
 # get all DNA and RNA seq files
 cat ../ena/ena_info.csv |
@@ -96,10 +102,22 @@ cat ../ena/ena_info.csv |
     sed 's/\./_/g' \
     > gene_time.tsv
 
-xlsx2csv seq_primer.xlsx |
-    sed 's/\s/_/g' |
-    mlr --icsv --otsv cat \
-    > seq_primer.tsv
+perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM7_ESM.xlsx \
+    --sheet "YPD DFE Sequencing primers " |
+    sed '1,2d' |
+    tr " " "_" |
+    sed 's/__/_/' |
+    sed 's/^"//' |
+    sed 's/",/,/' | 
+    perl -nla -F"," -e '
+    $F[0] =~ /^(.+)_\d$/;
+    $gene = $1;
+    $F[1] =~ /(N+.+)$/;
+    $primer = $1;
+    print "$gene\t$primer";
+    ' |
+    uniq \
+    > info/DFE_seq_primers.csv
 
 cat seq_primer.tsv |
     cut -f 1 |
