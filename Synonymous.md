@@ -5,7 +5,11 @@ This markdown records the process of repeating the analysis from this [article](
 ## Preparation
 
 ```bash
-pip install xlsx2csv
+cd ~/Scripts
+git clone https://github.com/wang-q/fig_table.git
+
+cd fig_table
+cp xlsx2csv.pl ~/data/yeast/scripts
 ```
 
 - AmpUMI
@@ -31,6 +35,19 @@ AmpUMI.py -h
 #usage: AmpUMI.py [-h] [--version] {Process,Collision,Distortion,CollisionNumber} ...
 #
 #AmpUMI - A toolkit for designing and analyzing amplicon sequencing experiments using unique molecular identifiers
+```
+
+## AmpUMI usage
+
+`AmpUMI.py Process` is used for processing FASTQ reads after an amplicon sequencing experiment.
+
+```bash
+AmpUMI.py Process -h
+```
+
+```txt
+usage: AmpUMI.py Process [-h] --fastq FASTQ --fastq_out FASTQ_OUT --umi_regex UMI_REGEX
+                         [--min_umi_to_keep MIN_UMI_TO_KEEP] [--write_UMI_counts] [--write_alleles_with_multiple_UMIs]
 ```
 
 ## Seq files
