@@ -18,7 +18,7 @@ cd AmpUMI
 vim AmpUMI.py
 # add shebang line below:
 #!/usr/bin/env python3
-#save
+# save
 
 python3 setup.py build
 python3 setup.py install
@@ -38,8 +38,8 @@ AmpUMI.py -h
 All data were downloaded from the Bioproject [PRJNA750109](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA750109).
 
 ```bash
-mkdir -p /mnt/e/data/yeast/ena
-cd /mnt/e/data/yeast/ena
+mkdir -p ~/data/yeast/ena
+cd ~/data/yeast/ena
 
 # download SraRunTable.txt to this doc
 # PRJNA750109, search it in NCBI SRA Run Selector
@@ -108,8 +108,8 @@ cat gene.lst |
 According to the article, Illumina 
 
 ```bash
-mkdir /mnt/e/data/yeast/trim
-cd /mnt/e/data/yeast/ena
+mkdir ~/data/yeast/trim
+cd ~/data/yeast/ena
 
 
 ```
