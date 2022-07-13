@@ -146,5 +146,10 @@ According to the article, Illumina
 mkdir ~/data/yeast/trim
 cd ~/data/yeast/ena
 
-
+# AmpUMI.py do not accept gz format
+AmpUMI.py Process --fastq SRR15274411_1.fastq \
+    --fastq_out ../trim/SRR15274411_1.dedup.fastq \
+    --umi_regex "^NNNNNNNNAGACTTTAGGGCTCGGTAATT" \
+    --write_UMI_counts \
+    --write_alleles_with_multiple_UMIs
 ```
