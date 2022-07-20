@@ -37,9 +37,15 @@ AmpUMI.py -h
 #AmpUMI - A toolkit for designing and analyzing amplicon sequencing experiments using unique molecular identifiers
 ```
 
-## AmpUMI usage
+- bbtools
 
-`AmpUMI.py Process` is used for processing FASTQ reads after an amplicon sequencing experiment.
+```bash
+brew install wang-q/tap/bbtools@37.77
+```
+
+## Usage intro
+
+- `AmpUMI.py Process` is used for processing FASTQ reads after an amplicon sequencing experiment.
 
 ```bash
 AmpUMI.py Process -h
@@ -48,6 +54,22 @@ AmpUMI.py Process -h
 ```txt
 usage: AmpUMI.py Process [-h] --fastq FASTQ --fastq_out FASTQ_OUT --umi_regex UMI_REGEX
                          [--min_umi_to_keep MIN_UMI_TO_KEEP] [--write_UMI_counts] [--write_alleles_with_multiple_UMIs]
+```
+
+- `bbmerge.sh` - merges overlapping or nonoverlapping pairs into a single reads.
+
+```bash
+bbmerge.sh --help
+```
+
+```txt
+Description: Merges paired reads into single reads by overlap detection.
+With sufficient coverage, can also merge nonoverlapping reads by kmer extension.
+Kmer modes requires much more memory, and should be used with the bbmerge-auto.sh script.
+Please read bbmap/docs/guides/BBMergeGuide.txt for more information.
+
+Usage for interleaved files:    bbmerge.sh in=<reads> out=<merged reads> outu=<unmerged reads>
+Usage for paired files:         bbmerge.sh in1=<read1> in2=<read2> out=<merged reads> outu1=<unmerged1> outu2=<unmerged2>
 ```
 
 ## Seq files
@@ -102,6 +124,7 @@ cat ../ena/ena_info.csv |
     sed 's/\./_/g' \
     > gene_time.tsv
 
+# 41586_2022_4823_MOESM7_ESM.xlsx contained multiple sheets
 perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM7_ESM.xlsx \
     --sheet "YPD DFE Sequencing primers " |
     sed '1,2d' |
@@ -117,7 +140,7 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM7_ESM.xlsx \
     print "$gene\t$primer";
     ' |
     uniq \
-    > info/DFE_seq_primers.csv
+    > info/DFE_seq_primers.tsv
 
 cat seq_primer.tsv |
     cut -f 1 |
@@ -152,4 +175,32 @@ AmpUMI.py Process --fastq SRR15274411_1.fastq \
     --umi_regex "^NNNNNNNNAGACTTTAGGGCTCGGTAATT" \
     --write_UMI_counts \
     --write_alleles_with_multiple_UMIs
+
+faops filter -l 0 SRR15273966_1.dedup.fastq stdout | grep '^>' | wc -l
+#61461
+
+faops filter -l 0 SRR15273966_2.dedup.fastq stdout | grep '^>' | wc -l
+#16384
+
+faops filter -l 0 SRR15274411_1.dedup.fastq stdout | grep '^>' | wc -l
+#64655
+
+faops filter -l 0 SRR15274411_2.dedup.fastq stdout | grep '^>' | wc -l
+#16384
 ```
+
+So for pair-end UMIs, two different files were slightly different after filtering by UMIs.
+
+```bash
+bbmerge.sh in1=SRR15273966_1.fastq in2=SRR15273966_2.fastq \
+    interleaved=false out=SRR15273966.merge.fastq
+
+faops size SRR15273966.merge.fastq |
+    cut -f 2 |
+    sort |
+    uniq |
+    tsv-summarize --max 1 --min 1
+#309  101
+```
+
+It is meaning that the merge will not automatically adapted to amplicon sequencing, so the method should be changed.
