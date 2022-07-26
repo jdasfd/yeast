@@ -204,3 +204,19 @@ faops size SRR15273966.merge.fastq |
 ```
 
 It is meaning that the merge will not automatically adapted to amplicon sequencing, so the method should be changed.
+
+```bash
+for gene in $(ls | perl -p -e 's/_.+$//')
+do
+    echo $gene
+    cat ${gene}_genetic_interactions.txt |
+        grep -v '^!' |
+        grep -v '^\s*$' |
+        sed '1d' |
+        tsv-select -f 1,3,6,8 |
+        tsv-filter --not-iregex 3:"Dosage" |
+        tsv-filter --not-iregex 3:"Rescue" |
+        tsv-summarize --group-by 4 --count
+    echo
+done
+```
