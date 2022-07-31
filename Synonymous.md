@@ -220,6 +220,57 @@ do
     echo
 done
 ```
+
+Extract vcf info from 1002 genomes project
+
+```bash
+cd ~/data/yeast
+mkdir isolates
+cd ~/data/yeast/isolates
+
+wget http://1002genomes.u-strasbg.fr/isolates/page8/files/1002genomes.txt
+
+# Remove references part
+cat 1002genomes.txt |
+    sed '1013,1042d' \
+    > 1002genomes.tsv
+
+# Human and Human, clinical were removed
+for catgry in $(cat 1002genomes.tsv | sed '1d' | cut -f 4 | grep -v "^Human" | sort | uniq)
+do
+    echo "==> ${catgry}"
+    cat 1002genomes.tsv |
+        sed '1d' |
+        tsv-select -f 1,2,4 |
+        tsv-filter --iregex 3:${catgry} |
+        tsv-select -f 1,2 \
+        > ${catgry}.tsv
+    cat ${catgry}.tsv |
+        tsv-select -f 1 \
+        > ${catgry}.lst
+done
+```
+
+```bash
+cd ~/data/yeast
+mkdir vcf
+
+for catgry in $(cat isolates/1002genomes.tsv | sed '1d' | cut -f 4 | grep -v "^Human" | sort | uniq)
+do
+    echo "==> ${catgry}"
+    
+    sample=$(cat isolates/${catgry}.lst |
+        tr '\n' ',' |
+        sed 's/,$//')
+    
+    bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz \
+        --threads 8 -s ${sample} |
+        bcftools +fill-tags -o vcf/1011Matrix.${catgry}.gvcf
+done
+
+
+```
+
 Extract all mutations in vcf-like format
 
 ```bash
