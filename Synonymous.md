@@ -220,3 +220,55 @@ do
     echo
 done
 ```
+Extract all mutations in vcf-like format
+
+```bash
+cd ~/data/yeast
+mkdir gene
+
+perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
+    --sheet "Fig. 2abc" |
+    sed '1d' |
+
+perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM3_ESM.xlsx |
+    sed '1d' |
+    cut -d, -f 1 \
+    > gene/stdname.lst
+
+rm gene/std_sysname.tsv
+for gene in $(cat gene/stdname.lst)
+do
+    echo "==> ${gene}"
+    cat ../mrna-structure/sgd/saccharomyces_cerevisiae.gff |
+        grep "${gene}" |
+        cut -f 9 | 
+        perl -nla -F';' -e '
+        $F[1] =~ /Name=(.*)/ or next;
+        $name = $1;
+        $F[2] =~ /gene=(.*)/ or next;
+        $gene = $1;
+        print "$name\t$gene";
+        ' \
+        >> gene/std_sysname.tsv
+done
+
+wc -l gene/std_sysname.tsv
+#34 gene/std_sysname.tsv
+# more than 21 genes, need filtering
+
+cat gene/std_sysname.tsv |
+    tsv-select -f 2,1 |
+    tsv-join --filter-file gene/stdname.lst \
+    --key-fields 1 \
+    > tmp.tsv && mv tmp.tsv gene/std_sysname.tsv
+
+wc -l gene/std_sysname.tsv
+#21 gene/std_sysname.tsv
+# alright
+
+cat gene/std_sysname.tsv |
+    tsv-select -f 2 \
+    > gene/21gene.lst
+
+
+```
