@@ -391,4 +391,30 @@ do
     cat gene/${gene}/${gene}.fa gene/${gene}/${gene}.mut.fa |
         muscle -out gene/${gene}/${gene}.aln.fa -quiet
 done
+
+# extract CDS genomic location
+cat ../mrna-structure/sgd/saccharomyces_cerevisiae.gff |
+    perl -nla -e '
+    next if /^#/;
+    next if /^[ATCG]/;
+    print "$F[0]\t$F[3]\t$F[4]\t$F[8]" if ($F[2] eq CDS);
+    ' > gene/CDS.gff
+
+for gene in $(cat gene/stdname.lst)
+do
+    echo "==> ${gene}"
+    sys=$(cat gene/std_sysname.tsv |
+              tsv-filter --str-eq 1:${gene} |
+              tsv-select -f 2)
+    cat gene/CDS.gff |
+        tsv-filter --iregex 4:${sys} |
+        perl -nla -e '
+        $F[0] =~ /^chr(.+)/;
+        $chr = $1;
+        $F[3] =~ /Name=(.+)_CDS/;
+        $name = $1;
+        print "$name\t$chr\t$F[1]\t$F[2]";
+        ' \
+        > gene/${gene}/${gene}_region.tsv
+done
 ```
