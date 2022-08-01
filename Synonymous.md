@@ -203,7 +203,7 @@ faops size SRR15273966.merge.fastq |
 #309  101
 ```
 
-It is meaning that the merge will not automatically adapted to amplicon sequencing, so the method should be changed.
+It is meaning that the merge will not be automatically adapted to amplicon sequencing, so the method should be changed.
 
 ```bash
 for gene in $(ls | perl -p -e 's/_.+$//')
@@ -343,7 +343,7 @@ do
         > gene/${gene}/${gene}.tmp.lst
 done
 
-# numbers of mutations
+# extract 150 coding regions (detected)
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
@@ -359,61 +359,35 @@ do
         tr '-' "\t" |
         tsv-select -f 1,2,3 |
         tsv-uniq |
-        sort -nk 2,2 |
-        tsv-select -f 3 |
-        perl -nae 'chomp;print "$_";
+        sort -nk 2,2 | 
+        perl -nae '
+        chomp;
+        $i = 1 if ($F[1] == 1);
+        if($F[1] eq $i){
+            print "$F[2]";
+            $i++;
+        }else{
+            print "-";
+            $i++;
+            redo;
+        }
         END{print "\n";}
-        ' \
-        >> gene/${gene}/${gene}.mut.fa
+        ' >> gene/${gene}/${gene}.mut.fa
 done
 
-# extract gene region
-spanr some ../mrna-structure/gene-filter/genes.merge.yml \
-    gene/sysname.lst -o gene/regions.yml
-
-# convert .yaml to .bed
-# bed4 format required: chr, start, end, and name
-cat gene/regions.yml |
-    perl -nl -e '
-    my %bed;
-    next if /^---/;
-    next if /^$/;
-    if($_ =~ /^(Y.+):/){
-        $gene = $1;
-    }else{
-        $_ =~ /^\s+(.+): ([0-9]+)-([0-9]+)$/;
-        $chr = $1;
-        $start = $2;
-        $end = $3;
-        my $seq = "$chr\t$start\t$end";
-        $bed{$gene} = $seq;
-    }
-    for my $key (keys %bed){
-        print "$bed{$key}\t$key";
-    }
-    ' > gene/regions.bed
-
-bedtools getfasta -fi ../mrna-structure/blast/S288c.fa \
-    -bed gene/regions.bed -name \
-    > gene/gene.fa
-
-cat gene/gene.fa |
-    perl -nle '
-    if(/^>/){
-        $_ =~ /^(>.+)::/;
-        print "$1";
-        }else{
-        print;
-        }' > tmp.fa && mv tmp.fa gene/gene.fa
+# extract CDS region
+# because of the coding region was selected from the SGD coding region
+faops some ../mrna-structure/sgd/orf_genomic_all.fasta \
+    gene/sysname.lst gene/21orf.fa
 
 # rename by standard name
-faops replace -l 0 gene/gene.fa gene/sys_stdname.tsv gene/std_gene.fa
+faops replace -l 0 gene/21orf.fa gene/sys_stdname.tsv gene/std_orf.fa
 
 # align to the gene
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
-    faops one -l 0 gene/std_gene.fa ${gene} gene/${gene}/${gene}.fa
+    faops one -l 0 gene/std_orf.fa ${gene} gene/${gene}/${gene}.fa
     cat gene/${gene}/${gene}.fa gene/${gene}/${gene}.mut.fa |
         muscle -out gene/${gene}/${gene}.aln.fa -quiet
 done
