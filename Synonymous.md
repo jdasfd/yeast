@@ -265,11 +265,16 @@ do
     
     bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz \
         --threads 8 -s ${sample} |
-        bcftools +fill-tags -o vcf/1011Matrix.${catgry}.gvcf
         bcftools +fill-tags -Ob -o vcf/1011Matrix.${catgry}.bcf
 done
+#-Ob: output bcf (compressed)
+# only compressed bcf format could be index
 
+cd ~/data/yeast/vcf
 
+parallel -j 4 " \
+bcftools index --threads 3 {} \
+" ::: $(ls *.bcf)
 ```
 
 Extract all mutations in vcf-like format
@@ -431,11 +436,11 @@ do
 done
 ```
 
-- Dealing with gvcf of different groups
+- Filtering with bcf of different groups using region
 
 ```bash
 mkdir ~/data/yeast/vcf/region
-cd ~/data/yeast
+cd ~/data/yeast/vcf
 
 echo -e "#CHROM\tPOS\tEND" > region/region.bed
 
@@ -469,24 +474,38 @@ do
     >> region/region.bed 
 done
 
-rm *.tsv
+# transfer all mutation to 1 vcf
+for gene in $(cat ../gene/stdname.lst)
+do
+    cat ../gene/${gene}/${gene}.mut.vcf \
+        >> ../vcf/region/all.mut.vcf
+done
 
-for group in $(ls | sed 's/^1011Matrix\.//' | sed 's/\.gvcf//')
+cat region/all.mut.vcf | wc -l
+#8548
+# all mutation with fitness scores
+
+for group in $(ls *.bcf | sed 's/^1011Matrix\.//' | sed 's/\.bcf$//')
+do
+bcftools view 1011Matrix.${group}.bcf -Ov -R region/region.bed \
+    -o ${group}.vcf
+done
+
+for group in $(ls *.vcf | sed 's/\.vcf//')
 do
     echo "==> ${group}"
     
-    cat 1011Matrix.${group}.gvcf |
+    cat ${group}.vcf |
         perl -nla -F"\t" -e '
         /^\#\#/ and next;
         splice @F, 8;
         print join qq{\t}, @F;
     ' \
-    > 1011Matrix.${group}.tsv
+    > ${group}.tsv
 
-    cat 1011Matrix.${group}.tsv |
+    cat ${group}.tsv |
         perl -nla -F"\t" -e '
             BEGIN {
-                print qq{Location\tREF\tALT\tFreq_vcf\tREF_vcf\tALT_vcf};
                 our %roman = (
                     16 => "XVI",
                     15 => "XV",
@@ -524,7 +543,6 @@ do
                 print qq{$chr\t$F[1]\t$F[3]\t$F[4]\t$Freq_vcf\t$REF_vcf\t$ALT_vcf};
             }
         ' \
-        > 1011Matrix.ext.${group}.tsv
+        > region/${group}.tsv
 done
-
 ```
