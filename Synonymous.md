@@ -555,10 +555,79 @@ cd ~/data/yeast/vcf/region
 for group in $(ls *.tsv | sed 's/\.tsv//')
 do
     echo "==> ${group}"
-    cat ${group}.tsv | wc -l
+    cat ${group}.tsv |
+        tsv-filter --ne 5:0 |
+        wc -l
     
     tsv-join all.mut.vcf -k 1,2,3 \
-        --filter-file ${group}.tsv |
+        --filter-file <(cat ${group}.tsv | tsv-filter --ne 5:0) |
         wc -l
 done
 ```
+
+==> Bakery
+220
+15
+==> Beer
+368
+37
+==> Bioethanol
+152
+18
+==> Cider
+135
+12
+==> Dairy
+137
+18
+==> Distillery
+246
+32
+==> Fermentation
+237
+27
+==> Flower
+138
+12
+==> Fruit
+378
+30
+==> Industrial
+233
+18
+==> Insect
+249
+15
+==> Lab
+80
+12
+==> Nature
+535
+42
+==> Palm
+274
+27
+==> Probiotic
+58
+0
+==> Sake
+143
+18
+==> Soil
+328
+27
+==> Tree
+480
+37
+==> Unknown
+264
+30
+==> Water
+214
+12
+==> strain
+80
+12
+==> wine
+596
+60
