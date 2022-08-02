@@ -418,4 +418,113 @@ do
         ' \
         > gene/${gene}/${gene}_region.tsv
 done
+
+# CDS location on the genomic region
+for gene in $(cat gene/stdname.lst)
+do
+    echo "==> ${gene}"
+    perl scripts/loc2vcf.pl \
+        -r gene/${gene}/${gene}_region.tsv \
+        -l gene/${gene}/${gene}.tmp.lst \
+        -a gene/${gene}/${gene}.aln.fa \
+        > gene/${gene}/${gene}.mut.vcf
+done
+```
+
+- Dealing with gvcf of different groups
+
+```bash
+mkdir ~/data/yeast/vcf/region
+cd ~/data/yeast
+
+echo -e "#CHROM\tPOS\tEND" > region/region.bed
+
+for gene in $(cat ../gene/stdname.lst)
+do
+    cat ../gene/${gene}/${gene}_region.tsv |
+        perl -nla -F"\t" -e '
+            BEGIN {
+                our %roman = (
+                    "XVI"   => 16,
+                    "XV"    => 15,
+                    "XIV"   => 14,
+                    "XIII"  => 13,
+                    "XII"   => 12,
+                    "XI"    => 11,
+                    "X"     => 10,
+                    "IX"    => 9,
+                    "VIII"  => 8,
+                    "VII"   => 7,
+                    "VI"    => 6,
+                    "V"     => 5,
+                    "IV"    => 4,
+                    "III"   => 3,
+                    "II"    => 2,
+                    "I"     => 1
+                );
+            }
+            my $chr = $roman{$F[1]};
+            print "chromosome$chr\t$F[2]\t$F[3]";
+        ' \
+    >> region/region.bed 
+done
+
+rm *.tsv
+
+for group in $(ls | sed 's/^1011Matrix\.//' | sed 's/\.gvcf//')
+do
+    echo "==> ${group}"
+    
+    cat 1011Matrix.${group}.gvcf |
+        perl -nla -F"\t" -e '
+        /^\#\#/ and next;
+        splice @F, 8;
+        print join qq{\t}, @F;
+    ' \
+    > 1011Matrix.${group}.tsv
+
+    cat 1011Matrix.${group}.tsv |
+        perl -nla -F"\t" -e '
+            BEGIN {
+                print qq{Location\tREF\tALT\tFreq_vcf\tREF_vcf\tALT_vcf};
+                our %roman = (
+                    16 => "XVI",
+                    15 => "XV",
+                    14 => "XIV",
+                    13 => "XIII",
+                    12 => "XII",
+                    11 => "XI",
+                    10 => "X",
+                    9  => "IX",
+                    8  => "VIII",
+                    7  => "VII",
+                    6  => "VI",
+                    5  => "V",
+                    4  => "IV",
+                    3  => "III",
+                    2  => "II",
+                    1  => "I"
+                );
+            }
+            next if /^#/;
+            my $loca = $F[0];
+            $loca =~ /^chromosome(\d+)/;
+            $chr = $roman{$1};
+            my $R        = length $F[3];
+            my $A        = length $F[4];
+            my @info     = split /;/, $F[7];
+            my @AF       = split /=/, $info[1];
+            my $Freq_vcf = $AF[1];
+            my @AC       = split /=/, $info[0];
+            my @AN       = split /=/, $info[2];
+            my $ALT_vcf  = $AC[1];
+            my $REF_vcf  = $AN[1] - $AC[1];
+    
+            if ( $R == 1 && $A == 1 ) {
+                print qq{$chr\t$F[1]\t$F[3]\t$F[4]\t$Freq_vcf\t$REF_vcf\t$ALT_vcf};
+            }
+        ' \
+        > 1011Matrix.ext.${group}.tsv
+done
+
 ```
