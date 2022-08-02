@@ -546,3 +546,19 @@ do
         > region/${group}.tsv
 done
 ```
+
+- Join analysis
+
+```bash
+cd ~/data/yeast/vcf/region
+
+for group in $(ls *.tsv | sed 's/\.tsv//')
+do
+    echo "==> ${group}"
+    cat ${group}.tsv | wc -l
+    
+    tsv-join all.mut.vcf -k 1,2,3 \
+        --filter-file ${group}.tsv |
+        wc -l
+done
+```
