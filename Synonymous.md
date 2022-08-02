@@ -266,6 +266,7 @@ do
     bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz \
         --threads 8 -s ${sample} |
         bcftools +fill-tags -o vcf/1011Matrix.${catgry}.gvcf
+        bcftools +fill-tags -Ob -o vcf/1011Matrix.${catgry}.bcf
 done
 
 
