@@ -221,7 +221,11 @@ do
 done
 ```
 
-Extract vcf info from 1002 genomes project
+## Variants info
+
+### Data preparation
+
+- Extract vcf info from 1002 genomes project
 
 ```bash
 cd ~/data/yeast
@@ -546,6 +550,8 @@ do
         > region/${group}.tsv
 done
 ```
+
+### Statistical analysis
 
 - Join analysis
 
