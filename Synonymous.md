@@ -228,8 +228,7 @@ done
 - Extract vcf info from 1002 genomes project
 
 ```bash
-cd ~/data/yeast
-mkdir isolates
+mkdir ~/data/yeast/isolates
 cd ~/data/yeast/isolates
 
 wget http://1002genomes.u-strasbg.fr/isolates/page8/files/1002genomes.txt
@@ -259,19 +258,20 @@ done
 cd ~/data/yeast
 mkdir vcf
 
-for catgry in $(cat isolates/1002genomes.tsv | sed '1d' | cut -f 4 | grep -v "^Human" | sort | uniq)
+# split vcf according to groups
+for group in $(cat isolates/1002genomes.tsv | sed '1d' | cut -f 4 | grep -v "^Human" | sort | uniq)
 do
-    echo "==> ${catgry}"
+    echo "==> ${group}"
     
-    sample=$(cat isolates/${catgry}.lst |
+    sample=$(cat isolates/${group}.lst |
         tr '\n' ',' |
         sed 's/,$//')
     
     bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz \
         --threads 8 -s ${sample} |
-        bcftools +fill-tags -Ob -o vcf/1011Matrix.${catgry}.bcf
+        bcftools +fill-tags -Ob -o vcf/1011Matrix.${group}.bcf
 done
-#-Ob: output bcf (compressed)
+# -Ob: output bcf (compressed)
 # only compressed bcf format could be index
 
 cd ~/data/yeast/vcf
@@ -281,7 +281,7 @@ bcftools index --threads 3 {} \
 " ::: $(ls *.bcf)
 ```
 
-Extract all mutations in vcf-like format
+- Extract all mutations in vcf-like format
 
 ```bash
 cd ~/data/yeast
@@ -327,10 +327,10 @@ cat gene/std_sysname.tsv |
     tsv-select -f 2 \
     > gene/sysname.lst
 
-cat std_sysname.tsv |
+cat gene/std_sysname.tsv |
     tsv-select -f 2,1 \
-    > sys_stdname.tsv
-
+    > gene/sys_stdname.tsv
+# change standard names and system names
 ```
 
 Locating mutations on the genome scale.
@@ -341,32 +341,32 @@ cd ~/data/yeast
 perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
     --sheet "Fig. 2abc" |
     sed '1d' |
-    tsv-select -d, -f 1 \
-    > info/mut.tmp.lst
+    tsv-select -d, -f 1,3,2 |
+    mlr --icsv --otsv cat |
+    tr '-' '\t' \
+    > info/fit.tmp.tsv
 
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
     mkdir gene/${gene}
-    cat info/mut.tmp.lst |
+    cat info/fit.tmp.tsv |
         grep "^$gene" \
-        > gene/${gene}/${gene}.tmp.lst
+        > gene/${gene}/${gene}.tmp.tsv
 done
 
 # extract 150 coding regions (detected)
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
-    cat gene/${gene}/${gene}.tmp.lst |
-        tr '-' "\t" |
+    cat gene/${gene}/${gene}.tmp.tsv |
         tsv-select -f 1,2,3 |
         tsv-uniq |
         sort -nk 2,2 |
         wc -l
     echo ">${gene}" \
         > gene/${gene}/${gene}.mut.fa
-    cat gene/${gene}/${gene}.tmp.lst |
-        tr '-' "\t" |
+    cat gene/${gene}/${gene}.tmp.tsv |
         tsv-select -f 1,2,3 |
         tsv-uniq |
         sort -nk 2,2 | 
@@ -637,3 +637,29 @@ done
 ==> wine
 596
 60
+
+- Extract fitness data
+
+```bash
+perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
+    --sheet "Fig. 2abc" |
+    sed '1d' |
+    tsv-select -d, -f 1,3,2 |
+    mlr --icsv --otsv cat |
+    tr '-' '\t' \
+    > info/fit.tmp.tsv
+
+cd ~/data/yeast/vcf/region
+
+for group in $(ls *.tsv | sed 's/\.tsv//')
+do
+    echo "==> ${group}"
+    cat ${group}.tsv |
+        tsv-filter --ne 5:0 |
+        wc -l
+    
+    tsv-join all.mut.vcf -k 1,2,3 \
+        --filter-file <(cat ${group}.tsv | tsv-filter --ne 5:0) |
+        wc -l
+done
+```
