@@ -377,113 +377,48 @@ done
 
 ## Statistical analysis
 
-- Join analysis
+### Join analysis
+
+- Join fitness data to vcf
 
 ```bash
-cd ~/data/yeast/vcf/region
+mkdir ~/data/yeast/vcf/fit
+mkdir ~/data/yeast/fitness
+cd ~/data/yeast
 
-for group in $(ls *.tsv | sed 's/\.tsv//')
+for group in $(cat isolates/group.lst)
 do
     echo "==> ${group}"
-    cat ${group}.tsv |
-        tsv-filter --ne 5:0 |
-        wc -l
-    
-    tsv-join all.mut.vcf -k 1,2,3 \
-        --filter-file <(cat ${group}.tsv | tsv-filter --ne 5:0) |
-        wc -l
+
+    tsv-join vcf/region/all.mut.vcf -k 1,2,3 \
+        --filter-file <(cat vcf/region/${group}.tsv | tsv-filter --ne 5:0) \
+        --append-fields 5,6,7 \
+        > vcf/fit/${group}.fit.tsv
 done
+
+wc -l vcf/fit/*.fit.tsv
+#  513 total
+# 8341 muts, only 513 muts were existed among all wild groups
+
+rm fitness/all.fit.tsv
+
+# mv all fitness into one tsv file
+for group in $(cat isolates/group.lst)
+do
+    echo "==> ${group}"
+    
+    cat vcf/fit/${group}.fit.tsv |
+        awk -v col="${group}" '{print (col "\t" $0)}' \
+        >> fitness/all.fit.tsv
+done
+
+cat fitness/all.fit.tsv | wc -l
+#513
 ```
 
-==> Bakery
-220
-15
-==> Beer
-368
-37
-==> Bioethanol
-152
-18
-==> Cider
-135
-12
-==> Dairy
-137
-18
-==> Distillery
-246
-32
-==> Fermentation
-237
-27
-==> Flower
-138
-12
-==> Fruit
-378
-30
-==> Industrial
-233
-18
-==> Insect
-249
-15
-==> Lab
-80
-12
-==> Nature
-535
-42
-==> Palm
-274
-27
-==> Probiotic
-58
-0
-==> Sake
-143
-18
-==> Soil
-328
-27
-==> Tree
-480
-37
-==> Unknown
-264
-30
-==> Water
-214
-12
-==> strain
-80
-12
-==> wine
-596
-60
-
-- Extract fitness data
+- Count different fitness format and plot
 
 ```bash
-perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
-    --sheet "Fig. 2abc" |
-    sed '1d' |
-    tsv-select -d, -f 1,3,2 |
-    mlr --icsv --otsv cat |
-    tr '-' '\t' \
-    > info/fit.tmp.tsv
+cd ~/data/yeast/fitness
 
-cd ~/data/yeast/vcf/region
-
-for group in $(ls *.tsv | sed 's/\.tsv//')
-do
-    echo "==> ${group}"
-    cat ${group}.tsv |
-        tsv-filter --ne 5:0 |
-        wc -l
-    
-    tsv-join all.mut.vcf -k 1,2,3 \
-        --filter-file <(cat ${group}.tsv | tsv-filter --ne 5:0) |
-        wc -l
-done
 ```
