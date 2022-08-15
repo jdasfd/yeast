@@ -51,7 +51,7 @@ wc -l *.lst
 
 ```bash
 cd ~/data/yeast
-mkdir vcf
+mkdir -p vcf/group
 
 # split vcf according to groups
 for group in $(cat isolates/1002genomes.tsv | sed '1d' | cut -f 2 | sort | uniq)
@@ -64,12 +64,12 @@ do
     
     bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz \
         --threads 8 -s ${sample} |
-        bcftools +fill-tags -Ob -o vcf/1011Matrix.${group}.bcf
+        bcftools +fill-tags -Ob -o vcf/group/1011Matrix.${group}.bcf
 done
 # -Ob: output bcf (compressed)
 # only compressed bcf format could be indexed
 
-cd ~/data/yeast/vcf
+cd ~/data/yeast/vcf/group
 
 parallel -j 4 " \
     bcftools index --threads 3 {} \
@@ -292,10 +292,14 @@ cat region/all.mut.vcf | wc -l
 #8548
 # all mutation with fitness scores
 
+cd group
+
 for group in $(ls *.bcf | sed 's/^1011Matrix\.//' | sed 's/\.bcf$//')
 do
-bcftools view 1011Matrix.${group}.bcf -Ov -R region/region.bed \
-    -o ${group}.vcf
+    echo "==>${group}"
+
+    bcftools view 1011Matrix.${group}.bcf -Ov \
+        -R ../region/region.bed -o ${group}.vcf
 done
 
 for group in $(ls *.vcf | sed 's/\.vcf//')
@@ -350,7 +354,7 @@ do
                 print qq{$chr\t$F[1]\t$F[3]\t$F[4]\t$Freq_vcf\t$REF_vcf\t$ALT_vcf};
             }
         ' \
-        > region/${group}.tsv
+        > ../region/${group}.tsv
 done
 ```
 
