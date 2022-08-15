@@ -1,6 +1,6 @@
 # Check wild yeast vcf
 
-## Info
+The [article](https://www.nature.com/articles/s41586-022-04823-w) contains thousands of mutations from 21 genes (synonymous or non-synonymous mutations). The goal is to validate all mutations among wild yeasts.
 
 `mkdir -p ~/data/yeast/info`
 
@@ -8,9 +8,11 @@ Download all supplementary files and tables from the [website](https://www.natur
 
 ## Variants info
 
+Steps followed here are processes to convert the mutation info into vcf format for better analyze.
+
 ### Data preparation
 
-- Extract vcf info from 1002 genomes project
+- Split strains from 1002 genomes project according to ecological groups
 
 ```bash
 mkdir ~/data/yeast/isolates
@@ -19,24 +21,30 @@ cd ~/data/yeast/isolates
 wget http://1002genomes.u-strasbg.fr/isolates/page8/files/1002genomes.txt
 
 # Remove references part
+# Change the col2 to variables
 cat 1002genomes.txt |
-    sed '1013,1042d' \
+    sed '1013,1042d' |
+    tsv-select -f 1,4 |
+    sed 's/Human, clinical/Clinical/' |
+    tr ' ' '_' \
     > 1002genomes.tsv
 
-# Human and Human, clinical were removed
-for catgry in $(cat 1002genomes.tsv | sed '1d' | cut -f 4 | grep -v "^Human" | sort | uniq)
+for catgry in $(cat 1002genomes.tsv | sed '1d' | cut -f 2 | sort | uniq)
 do
     echo "==> ${catgry}"
     cat 1002genomes.tsv |
         sed '1d' |
-        tsv-select -f 1,2,4 |
-        tsv-filter --iregex 3:${catgry} |
-        tsv-select -f 1,2 \
-        > ${catgry}.tsv
-    cat ${catgry}.tsv |
+        tsv-filter --str-eq 2:${catgry} |
         tsv-select -f 1 \
         > ${catgry}.lst
 done
+
+cat 1002genomes.tsv | sed '1d' | wc -l
+#1011
+
+wc -l *.lst
+#1011 total
+# Split correctly
 ```
 
 ```bash
