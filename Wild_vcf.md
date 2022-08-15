@@ -142,19 +142,25 @@ cat gene/std_sysname.tsv |
 ```bash
 cd ~/data/yeast
 
+# average fitness of muts were not all available
+# remove those #DIV/0!
 perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
     --sheet "Fig. 2abc" |
     sed '1d' |
     tsv-select -d, -f 1,3,2 |
     mlr --icsv --otsv cat |
-    tr '-' '\t' \
+    tr '-' '\t' |
+    tsv-filter --not-iregex 5:# \
     > info/fit.tsv
 
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
 
-    mkdir gene/${gene}
+    if ! [ -d gene/${gene} ]
+    then
+        mkdir gene/${gene}
+    fi
 
     cat info/fit.tsv |
         grep "^$gene" \
@@ -300,10 +306,10 @@ do
 done
 
 cat region/all.mut.vcf | wc -l
-#8548
+#8341
 # all mutation with fitness scores
 
-cd group
+cd ~/data/yeast/vcf/group
 
 for group in $(ls *.bcf | sed 's/^1011Matrix\.//' | sed 's/\.bcf$//')
 do
