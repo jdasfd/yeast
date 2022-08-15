@@ -47,12 +47,14 @@ wc -l *.lst
 # Split correctly
 ```
 
+- Split according to groups from the `1011Matrix.gvcf.gz`
+
 ```bash
 cd ~/data/yeast
 mkdir vcf
 
 # split vcf according to groups
-for group in $(cat isolates/1002genomes.tsv | sed '1d' | cut -f 4 | grep -v "^Human" | sort | uniq)
+for group in $(cat isolates/1002genomes.tsv | sed '1d' | cut -f 2 | sort | uniq)
 do
     echo "==> ${group}"
     
@@ -65,12 +67,12 @@ do
         bcftools +fill-tags -Ob -o vcf/1011Matrix.${group}.bcf
 done
 # -Ob: output bcf (compressed)
-# only compressed bcf format could be index
+# only compressed bcf format could be indexed
 
 cd ~/data/yeast/vcf
 
 parallel -j 4 " \
-bcftools index --threads 3 {} \
+    bcftools index --threads 3 {} \
 " ::: $(ls *.bcf)
 ```
 
@@ -137,29 +139,35 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
     tsv-select -d, -f 1,3,2 |
     mlr --icsv --otsv cat |
     tr '-' '\t' \
-    > info/fit.tmp.tsv
+    > info/fit.tsv
 
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
+
     mkdir gene/${gene}
-    cat info/fit.tmp.tsv |
+
+    cat info/fit.tsv |
         grep "^$gene" \
-        > gene/${gene}/${gene}.tmp.tsv
+        > gene/${gene}/${gene}.tsv
 done
 
 # extract 150 coding regions (detected)
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
-    cat gene/${gene}/${gene}.tmp.tsv |
+
+    # count num of muts for every gene
+    cat gene/${gene}/${gene}.tsv |
         tsv-select -f 1,2,3 |
         tsv-uniq |
         sort -nk 2,2 |
         wc -l
+
     echo ">${gene}" \
         > gene/${gene}/${gene}.mut.fa
-    cat gene/${gene}/${gene}.tmp.tsv |
+
+    cat gene/${gene}/${gene}.tsv |
         tsv-select -f 1,2,3 |
         tsv-uniq |
         sort -nk 2,2 | 
@@ -206,9 +214,11 @@ cat ../mrna-structure/sgd/saccharomyces_cerevisiae.gff |
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
+
     sys=$(cat gene/std_sysname.tsv |
               tsv-filter --str-eq 1:${gene} |
               tsv-select -f 2)
+
     cat gene/CDS.gff |
         tsv-filter --iregex 4:${sys} |
         perl -nla -e '
@@ -227,7 +237,7 @@ do
     echo "==> ${gene}"
     perl scripts/loc2vcf.pl \
         -r gene/${gene}/${gene}_region.tsv \
-        -l gene/${gene}/${gene}.tmp.lst \
+        -t gene/${gene}/${gene}.tsv \
         -a gene/${gene}/${gene}.aln.fa \
         > gene/${gene}/${gene}.mut.vcf
 done
