@@ -19,17 +19,17 @@ loc2vcf.pl - convert gene pos to genome loc and output vcf
       Options:
         --help          -?          brief help message
         --region        -r  STR     region file in bed4 format
-        --list          -l  STR     list file in gene-pos-REF-ALT format (1 col)
+        --tsv           -t  STR     tsv file in gene-pos-REF-ALT-fit-mut format
         --aln           -a  STR     aln format file contains alignment info
 
-    perl loc2vcf.pl -r region.tsv -l gene.lst -a gene.aln.fa
+    perl loc2vcf.pl -r region.tsv -t gene.tsv -a gene.aln.fa
 
 =cut
 
 GetOptions(
     'help|?'        => sub { Getopt::Long::HelpMessage(0) },
     'region|r=s'    => \( my $region_file ),
-    'list|l=s'      => \( my $list_file ),
+    'tsv|t=s'       => \( my $tsv_file ),
     'aln|a=s'       => \( my $aln_file ),
 ) or Getopt::Long::HelpMessage(1);
 
@@ -40,11 +40,11 @@ elsif ( !path($region_file)->is_file ) {
     die "Error: can't find file [$region_file]";
 }
 
-if ( !defined $list_file ) {
+if ( !defined $tsv_file ) {
     die Getopt::Long::HelpMessage(1);
 }
-elsif ( !path($list_file)->is_file ) {
-    die "Error: can't find file [$list_file]";
+elsif ( !path($tsv_file)->is_file ) {
+    die "Error: can't find file [$tsv_file]";
 }
 
 if ( !defined $aln_file ) {
@@ -63,7 +63,7 @@ my ($chr, $reg_start, $reg_end);
 my $genom_loc;
 
 $region_file = path($region_file)->absolute->stringify;
-$list_file = path($list_file)->absolute->stringify;
+$tsv_file = path($tsv_file)->absolute->stringify;
 $aln_file = path($aln_file)->absolute->stringify;
 
 open my $r_in, '<', $region_file;
@@ -85,12 +85,12 @@ close $a_in;
 
 $genom_loc = $reg_start + $loc_num;
 
-open my $l_in, '<', $list_file;
+open my $l_in, '<', $tsv_file;
 while(<$l_in>){
     chomp;
-    my ($ch_loc, $ref, $alt) = (split /-/, $_)[1,2,3];
+    my ($ch_loc, $ref, $alt, $fit, $type) = (split /\t/, $_)[1,2,3,4,5];
     $ch_loc = $ch_loc + $genom_loc - 1;
-    print "$chr\t$ch_loc\t$ref\t$alt\n";
+    print "$chr\t$ch_loc\t$ref\t$alt\t$fit\t$type\n";
 }
 close $l_in;
 
