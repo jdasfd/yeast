@@ -29,7 +29,14 @@ cat 1002genomes.txt |
     tr ' ' '_' \
     > 1002genomes.tsv
 
-for catgry in $(cat 1002genomes.tsv | sed '1d' | cut -f 2 | sort | uniq)
+cat 1002genomes.tsv |
+    sed '1d' |
+    cut -f 2 |
+    sort |
+    uniq \
+    > group.lst
+
+for catgry in $(cat group.lst)
 do
     echo "==> ${catgry}"
     cat 1002genomes.tsv |
@@ -43,8 +50,9 @@ cat 1002genomes.tsv | sed '1d' | wc -l
 #1011
 
 wc -l *.lst
-#1011 total
-# Split correctly
+#  23 group.lst
+#1034 total
+# result is 1011 after subtraction, split correctly
 ```
 
 ### Split according to groups from the `1011Matrix.gvcf.gz`
@@ -54,7 +62,7 @@ cd ~/data/yeast
 mkdir -p vcf/group
 
 # split vcf according to groups
-for group in $(cat isolates/1002genomes.tsv | sed '1d' | cut -f 2 | sort | uniq)
+for group in $(cat isolates/group.lst)
 do
     echo "==> ${group}"
     
@@ -88,6 +96,7 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM3_ESM.xlsx |
     > gene/stdname.lst
 
 rm gene/std_sysname.tsv
+
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
@@ -280,6 +289,8 @@ do
         ' \
     >> region/region.bed 
 done
+
+rm ../vcf/region/all.mut.vcf
 
 # transfer all mutation to 1 vcf
 for gene in $(cat ../gene/stdname.lst)
