@@ -6,13 +6,13 @@ The [article](https://www.nature.com/articles/s41586-022-04823-w) contains thous
 
 Download all supplementary files and tables from the [website](https://www.nature.com/articles/s41586-022-04823-w) and save them into info dir.
 
-## Variants info
-
 Steps followed here are processes to convert the mutation info into vcf format for better analyze.
 
-### Data preparation
+There are some data from the [README.md](https://github.com/wang-q/pars#readme). Better completing those steps.
 
-- Split strains from 1002 genomes project according to ecological groups
+## Data preparation
+
+### Split strains from 1002 genomes project according to ecological groups
 
 ```bash
 mkdir ~/data/yeast/isolates
@@ -47,7 +47,7 @@ wc -l *.lst
 # Split correctly
 ```
 
-- Split according to groups from the `1011Matrix.gvcf.gz`
+### Split according to groups from the `1011Matrix.gvcf.gz`
 
 ```bash
 cd ~/data/yeast
@@ -76,7 +76,7 @@ parallel -j 4 " \
 " ::: $(ls *.bcf)
 ```
 
-- Extract all mutations in vcf-like format
+### Extract all mutations in vcf-like format
 
 ```bash
 cd ~/data/yeast
@@ -128,7 +128,7 @@ cat gene/std_sysname.tsv |
 # change standard names and system names
 ```
 
-Locating mutations on the genome scale.
+### Locating mutations on the genome scale.
 
 ```bash
 cd ~/data/yeast
@@ -243,7 +243,7 @@ do
 done
 ```
 
-- Filtering with bcf of different groups using region
+### Filtering with bcf of different groups using region
 
 ```bash
 mkdir ~/data/yeast/vcf/region
@@ -358,7 +358,7 @@ do
 done
 ```
 
-### Statistical analysis
+## Statistical analysis
 
 - Join analysis
 
