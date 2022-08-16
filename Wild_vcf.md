@@ -390,17 +390,17 @@ for group in $(cat isolates/group.lst)
 do
     echo "==> ${group}"
 
-    tsv-join vcf/region/all.mut.vcf -k 1,2,3 \
+    tsv-join vcf/region/all.mut.vcf -k 1,2,3,4 \
         --filter-file <(cat vcf/region/${group}.tsv | tsv-filter --ne 5:0) \
         --append-fields 5,6,7 \
         > vcf/fit/${group}.fit.tsv
 done
 
 wc -l vcf/fit/*.fit.tsv
-#  513 total
+#  179 total
 # 8341 muts, only 513 muts were existed among all wild groups
 
-rm fitness/all.fit.tsv
+rm fitness/group.fit.tsv
 
 # mv all fitness into one tsv file
 for group in $(cat isolates/group.lst)
@@ -409,16 +409,29 @@ do
     
     cat vcf/fit/${group}.fit.tsv |
         awk -v col="${group}" '{print (col "\t" $0)}' \
-        >> fitness/all.fit.tsv
+        >> fitness/group.fit.tsv
 done
 
-cat fitness/all.fit.tsv | wc -l
-#513
+cat fitness/group.fit.tsv | wc -l
+#179
+
+# other muts without occurring among all groups
+cat vcf/region/all.mut.vcf |
+    tsv-join -k 1,2,3,4 \
+    --filter-file <(cat fitness/group.fit.tsv | tsv-select -f 2,3,4,5) \
+    --exclude |
+    awk '{print ("other" "\t" $0 "\t" "0" "\t" "-" "\t" "-")}' \
+    > fitness/other.fit.tsv
+
+# combine 2 parts
+cat fitness/group.fit.tsv fitness/other.fit.tsv \
+    > fitness/all.fit.tsv
 ```
 
 - Count different fitness format and plot
 
 ```bash
 cd ~/data/yeast/fitness
+
 
 ```
