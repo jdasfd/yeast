@@ -433,5 +433,73 @@ cat fitness/group.fit.tsv fitness/other.fit.tsv \
 ```bash
 cd ~/data/yeast/fitness
 
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-summarize --group-by 7 --count |
+    mlr --itsv --omd cat
 
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-summarize --group-by 1,7 --mean 6 --median 6 |
+    sed '1igroup\ttype\tmean\tmedian' \
+    > fitness.tsv
+
+cat fitness.tsv |
+    Rscript -e '
+    library'
 ```
+
+| Nonsynonymous_mutation | 89  |
+|------------------------|-----|
+| Synonymous_mutation    | 86  |
+| Nonsense_mutation      | 4   |
+
+| group        | type                   | mean           | median         |
+|--------------|------------------------|----------------|----------------|
+| Bakery       | Nonsynonymous_mutation | 0.993952946833 | 0.99691229925  |
+| Bakery       | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
+| Beer         | Nonsynonymous_mutation | 0.990627553393 | 0.9934689155   |
+| Beer         | Synonymous_mutation    | 0.988379347109 | 0.989974881    |
+| Bioethanol   | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
+| Bioethanol   | Synonymous_mutation    | 0.990054031913 | 0.994400744    |
+| Cider        | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
+| Cider        | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
+| Clinical     | Nonsynonymous_mutation | 0.993034458    | 0.995005548625 |
+| Clinical     | Synonymous_mutation    | 0.990552478788 | 0.993249265125 |
+| Dairy        | Nonsynonymous_mutation | 0.990048784583 | 0.9905381615   |
+| Dairy        | Synonymous_mutation    | 0.995520676    | 0.995520676    |
+| Distillery   | Synonymous_mutation    | 0.991897391109 | 0.9935399995   |
+| Distillery   | Nonsynonymous_mutation | 0.99258668905  | 0.99691229925  |
+| Fermentation | Synonymous_mutation    | 0.987350236817 | 0.99448643775  |
+| Fermentation | Nonsynonymous_mutation | 0.990413197    | 0.99691229925  |
+| Flower       | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
+| Flower       | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
+| Fruit        | Nonsynonymous_mutation | 0.993961673063 | 0.995394147    |
+| Fruit        | Synonymous_mutation    | 0.984812363317 | 0.984694513    |
+| Human        | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
+| Human        | Synonymous_mutation    | 0.987182293481 | 0.9873332615   |
+| Industrial   | Nonsynonymous_mutation | 0.993952946833 | 0.99691229925  |
+| Industrial   | Synonymous_mutation    | 0.986496106134 | 0.98807367875  |
+| Insect       | Nonsynonymous_mutation | 0.9882705025   | 0.99691229925  |
+| Insect       | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
+| Lab_strain   | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
+| Lab_strain   | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
+| Nature       | Nonsynonymous_mutation | 0.988430281375 | 0.989328105125 |
+| Nature       | Synonymous_mutation    | 0.987996963359 | 0.989974881    |
+| Palm_wine    | Nonsynonymous_mutation | 0.991533430125 | 0.99181591175  |
+| Palm_wine    | Synonymous_mutation    | 0.989110202081 | 0.99119987325  |
+| Sake         | Nonsynonymous_mutation | 0.993432876938 | 0.995394147    |
+| Sake         | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
+| Soil         | Nonsynonymous_mutation | 0.98570085225  | 0.99691229925  |
+| Soil         | Synonymous_mutation    | 0.988496564976 | 0.991285810125 |
+| Soil         | Nonsense_mutation      | 0.894531893404 | 0.894531893404 |
+| Tree         | Nonsynonymous_mutation | 0.985150976651 | 0.984364901827 |
+| Tree         | Synonymous_mutation    | 0.990710495678 | 0.994297732583 |
+| Unknown      | Nonsynonymous_mutation | 0.9978449385   | 0.996937521125 |
+| Unknown      | Nonsense_mutation      | 0.9937188485   | 0.9937188485   |
+| Unknown      | Synonymous_mutation    | 0.989668183781 | 0.991980373    |
+| Water        | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
+| Water        | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
+| Wine         | Nonsynonymous_mutation | 0.986167073736 | 0.990672412    |
+| Wine         | Nonsense_mutation      | 0.9937188485   | 0.9937188485   |
+| Wine         | Synonymous_mutation    | 0.985464730372 | 0.985222140917 |
