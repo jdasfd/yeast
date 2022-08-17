@@ -415,6 +415,10 @@ done
 cat fitness/group.fit.tsv | wc -l
 #179
 
+cat fitness/group.fit.tsv |
+    tsv-summarize -g 7 --mean 6 --median 6 |
+    mlr --itsv --omd cat
+
 # other muts without occurring among all groups
 cat vcf/region/all.mut.vcf |
     tsv-join -k 1,2,3,4 \
@@ -423,10 +427,28 @@ cat vcf/region/all.mut.vcf |
     awk '{print ("other" "\t" $0 "\t" "0" "\t" "-" "\t" "-")}' \
     > fitness/other.fit.tsv
 
+cat fitness/other.fit.tsv |
+    tsv-summarize -g 7 --mean 6 --median 6 |
+    mlr --itsv --omd cat
+
 # combine 2 parts
 cat fitness/group.fit.tsv fitness/other.fit.tsv \
     > fitness/all.fit.tsv
 ```
+
+`group.fit.tsv`:
+
+| Nonsynonymous_mutation | 0.991225602326 | 0.99691229925  |
+|------------------------|----------------|----------------|
+| Synonymous_mutation    | 0.988202180851 | 0.991590123125 |
+| Nonsense_mutation      | 0.944125370952 | 0.949334339282 |
+
+`other.fit.tsv`:
+
+| Nonsynonymous_mutation | 0.984944235527 | 0.98805154375  |
+|------------------------|----------------|----------------|
+| Synonymous_mutation    | 0.987772083901 | 0.988734612306 |
+| Nonsense_mutation      | 0.934085408798 | 0.939873592125 |
 
 - Count different fitness format and plot
 
@@ -441,12 +463,22 @@ cat all.fit.tsv |
 cat all.fit.tsv |
     tsv-filter --str-ne 1:other |
     tsv-summarize --group-by 1,7 --mean 6 --median 6 |
+    tsv-filter --str-ne 2:Nonsense_mutation |
     sed '1igroup\ttype\tmean\tmedian' \
     > fitness.tsv
 
-cat fitness.tsv |
-    Rscript -e '
-    library'
+Rscript -e '
+library(ggplot2)
+library(readr)
+args <- commandArgs(T)
+fit <- read_tsv(args[1])
+p1 <- ggplot(fit, aes(x = group, y = mean, group = type)) +
+geom_boxplot()
+p2 <- ggplot(fit, aes(x = group, y = median, group = type)) +
+geom_boxplot()
+ggsave(p1, file = "mean.pdf")
+ggsave(p2, file = "median.pdf")
+' fitness.tsv
 ```
 
 | Nonsynonymous_mutation | 89  |
