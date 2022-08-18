@@ -420,8 +420,13 @@ cat fitness/group.fit.tsv |
     wc -l
 #66
 # totally 66 snps ( 1 snp may exists more than 1 group)
+# but 1 snp may have different freq among groups
 
 # calculate 
+cat fitness/group.fit.tsv |
+    tsv-summarize -g 7 --count --mean 6 --median 6 |
+    mlr --itsv --omd cat
+
 cat fitness/group.fit.tsv |
     tsv-uniq -f 2,3,4,5 |
     tsv-summarize -g 7 --count --mean 6 --median 6 |
@@ -455,6 +460,13 @@ cat fitness/group.fit.tsv |
 ```
 
 `group.fit.tsv`:
+
+| Nonsynonymous_mutation | 89  | 0.991225602326 | 0.99691229925  |
+|------------------------|-----|----------------|----------------|
+| Synonymous_mutation    | 86  | 0.988202180851 | 0.991590123125 |
+| Nonsense_mutation      | 4   | 0.944125370952 | 0.949334339282 |
+
+uniq all snps
 
 | Nonsynonymous_mutation | 33  | 0.987204450667 | 0.98809565525  |
 |------------------------|-----|----------------|----------------|
@@ -495,80 +507,97 @@ cat fitness/group.fit.tsv |
 ```bash
 cd ~/data/yeast/fitness
 
-# 
+# all nonsense mutations in wild
+cat all.fit.tsv |
+    tsv-filter --str-eq 7:Nonsense_mutation --str-ne 1:other \
+    > nonsense.tsv
+
+# 0.05 as cutoff
+cat all.fit.tsv |
+    tsv-filter --str-ge 8:0.05 --str-ne 7:Nonsense_mutation |
+    tsv-select -f 1,6,7 |
+    sed '1igroup\tfit\ttype' \
+    > fit_ge.tsv
 
 cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-summarize --group-by 1,7 --mean 6 --median 6 |
-    tsv-filter --str-ne 2:Nonsense_mutation |
-    sed '1igroup\ttype\tmean\tmedian' \
-    > fitness.tsv
+    tsv-filter --str-lt 8:0.05 --str-ne 7:Nonsense_mutation |
+    tsv-select -f 1,6,7 |
+    sed '1igroup\tfit\ttype' \
+    > fit_lt.tsv
+
+wc -l fit_*.tsv
+
+#   106 fit_ge.tsv
+#  8350 fit_lt.tsv
+#  8456 total
 
 Rscript -e '
 library(ggplot2)
 library(readr)
 args <- commandArgs(T)
 fit <- read_tsv(args[1])
-p1 <- ggplot(fit, aes(x = group, y = mean, group = type)) +
-geom_boxplot()
-p2 <- ggplot(fit, aes(x = group, y = median, group = type)) +
-geom_boxplot()
-ggsave(p1, file = "mean.pdf")
-ggsave(p2, file = "median.pdf")
-' fitness.tsv
+p <- ggplot(fit, aes(x = group, y = fit, group = type, color = type)) +
+      geom_point() +
+      theme(axis.text.x = element_text(angle = 315))
+ggsave(p, height = 6, width = 12, file = "fit_ge.pdf")
+' fit_ge.tsv
+
+Rscript -e '
+library(ggplot2)
+library(readr)
+args <- commandArgs(T)
+fit <- read_tsv(args[1])
+p <- ggplot(fit, aes(x = group, y = fit, group = type, color = type)) +
+      geom_point() +
+      theme(axis.text.x = element_text(angle = 315))
+ggsave(p, height = 6, width = 12, file = "fit_lt.pdf")
+' fit_lt.tsv
 ```
 
-| Nonsynonymous_mutation | 89  |
-|------------------------|-----|
-| Synonymous_mutation    | 86  |
-| Nonsense_mutation      | 4   |
-
-| group        | type                   | mean           | median         |
-|--------------|------------------------|----------------|----------------|
-| Bakery       | Nonsynonymous_mutation | 0.993952946833 | 0.99691229925  |
-| Bakery       | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
-| Beer         | Nonsynonymous_mutation | 0.990627553393 | 0.9934689155   |
-| Beer         | Synonymous_mutation    | 0.988379347109 | 0.989974881    |
-| Bioethanol   | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
-| Bioethanol   | Synonymous_mutation    | 0.990054031913 | 0.994400744    |
-| Cider        | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
-| Cider        | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
-| Clinical     | Nonsynonymous_mutation | 0.993034458    | 0.995005548625 |
-| Clinical     | Synonymous_mutation    | 0.990552478788 | 0.993249265125 |
-| Dairy        | Nonsynonymous_mutation | 0.990048784583 | 0.9905381615   |
-| Dairy        | Synonymous_mutation    | 0.995520676    | 0.995520676    |
-| Distillery   | Synonymous_mutation    | 0.991897391109 | 0.9935399995   |
-| Distillery   | Nonsynonymous_mutation | 0.99258668905  | 0.99691229925  |
-| Fermentation | Synonymous_mutation    | 0.987350236817 | 0.99448643775  |
-| Fermentation | Nonsynonymous_mutation | 0.990413197    | 0.99691229925  |
-| Flower       | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
-| Flower       | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
-| Fruit        | Nonsynonymous_mutation | 0.993961673063 | 0.995394147    |
-| Fruit        | Synonymous_mutation    | 0.984812363317 | 0.984694513    |
-| Human        | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
-| Human        | Synonymous_mutation    | 0.987182293481 | 0.9873332615   |
-| Industrial   | Nonsynonymous_mutation | 0.993952946833 | 0.99691229925  |
-| Industrial   | Synonymous_mutation    | 0.986496106134 | 0.98807367875  |
-| Insect       | Nonsynonymous_mutation | 0.9882705025   | 0.99691229925  |
-| Insect       | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
-| Lab_strain   | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
-| Lab_strain   | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
-| Nature       | Nonsynonymous_mutation | 0.988430281375 | 0.989328105125 |
-| Nature       | Synonymous_mutation    | 0.987996963359 | 0.989974881    |
-| Palm_wine    | Nonsynonymous_mutation | 0.991533430125 | 0.99181591175  |
-| Palm_wine    | Synonymous_mutation    | 0.989110202081 | 0.99119987325  |
-| Sake         | Nonsynonymous_mutation | 0.993432876938 | 0.995394147    |
-| Sake         | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
-| Soil         | Nonsynonymous_mutation | 0.98570085225  | 0.99691229925  |
-| Soil         | Synonymous_mutation    | 0.988496564976 | 0.991285810125 |
-| Soil         | Nonsense_mutation      | 0.894531893404 | 0.894531893404 |
-| Tree         | Nonsynonymous_mutation | 0.985150976651 | 0.984364901827 |
-| Tree         | Synonymous_mutation    | 0.990710495678 | 0.994297732583 |
-| Unknown      | Nonsynonymous_mutation | 0.9978449385   | 0.996937521125 |
-| Unknown      | Nonsense_mutation      | 0.9937188485   | 0.9937188485   |
-| Unknown      | Synonymous_mutation    | 0.989668183781 | 0.991980373    |
-| Water        | Nonsynonymous_mutation | 0.996937521125 | 0.996937521125 |
-| Water        | Synonymous_mutation    | 0.985707319827 | 0.985707319827 |
-| Wine         | Nonsynonymous_mutation | 0.986167073736 | 0.990672412    |
-| Wine         | Nonsense_mutation      | 0.9937188485   | 0.9937188485   |
-| Wine         | Synonymous_mutation    | 0.985464730372 | 0.985222140917 |
+| group        | type                   | num | mean           | median         |
+|--------------|------------------------|-----|----------------|----------------|
+| Bakery       | Nonsynonymous_mutation | 3   | 0.993952946833 | 0.99691229925  |
+| Bakery       | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Beer         | Nonsynonymous_mutation | 4   | 0.996479855938 | 0.996937521125 |
+| Beer         | Synonymous_mutation    | 4   | 0.987841100413 | 0.989974881    |
+| Bioethanol   | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Bioethanol   | Synonymous_mutation    | 1   | 0.9984248515   | 0.9984248515   |
+| Cider        | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Cider        | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Clinical     | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Clinical     | Synonymous_mutation    | 3   | 0.986496106134 | 0.98807367875  |
+| Dairy        | Nonsynonymous_mutation | 2   | 0.989804096125 | 0.989804096125 |
+| Dairy        | Synonymous_mutation    | 2   | 0.995520676    | 0.995520676    |
+| Distillery   | Synonymous_mutation    | 3   | 0.989098255134 | 0.99588012575  |
+| Distillery   | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Fermentation | Synonymous_mutation    | 4   | 0.991674809788 | 0.9964791265   |
+| Fermentation | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Flower       | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Flower       | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Fruit        | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Fruit        | Synonymous_mutation    | 3   | 0.984050630801 | 0.98073725275  |
+| Human        | Synonymous_mutation    | 4   | 0.984871288476 | 0.984035257125 |
+| Human        | Nonsynonymous_mutation | 1   | 0.99691229925  | 0.99691229925  |
+| Industrial   | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Industrial   | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Insect       | Nonsynonymous_mutation | 3   | 0.9882705025   | 0.99691229925  |
+| Insect       | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Lab_strain   | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Lab_strain   | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Nature       | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Nature       | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Palm_wine    | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Palm_wine    | Synonymous_mutation    | 3   | 0.987538170968 | 0.99119987325  |
+| Sake         | Nonsynonymous_mutation | 3   | 0.995917012333 | 0.99691229925  |
+| Sake         | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Soil         | Synonymous_mutation    | 4   | 0.988496564976 | 0.991285810125 |
+| Soil         | Nonsense_mutation      | 2   | 0.894531893404 | 0.894531893404 |
+| Soil         | Nonsynonymous_mutation | 2   | 0.980069906875 | 0.980069906875 |
+| Tree         | Nonsynonymous_mutation | 3   | 0.9882705025   | 0.99691229925  |
+| Tree         | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Unknown      | Nonsynonymous_mutation | 3   | 0.99821723375  | 0.996962743    |
+| Unknown      | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Water        | Nonsynonymous_mutation | 2   | 0.996937521125 | 0.996937521125 |
+| Water        | Synonymous_mutation    | 2   | 0.985707319827 | 0.985707319827 |
+| Wine         | Nonsynonymous_mutation | 1   | 0.99691229925  | 0.99691229925  |
+| Wine         | Synonymous_mutation    | 1   | 0.9984248515   | 0.9984248515   |
