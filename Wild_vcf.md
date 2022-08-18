@@ -416,7 +416,15 @@ cat fitness/group.fit.tsv | wc -l
 #179
 
 cat fitness/group.fit.tsv |
-    tsv-summarize -g 7 --mean 6 --median 6 |
+    tsv-uniq -f 2,3,4,5 |
+    wc -l
+#66
+# totally 66 snps ( 1 snp may exists more than 1 group)
+
+# calculate 
+cat fitness/group.fit.tsv |
+    tsv-uniq -f 2,3,4,5 |
+    tsv-summarize -g 7 --count --mean 6 --median 6 |
     mlr --itsv --omd cat
 
 # other muts without occurring among all groups
@@ -428,37 +436,66 @@ cat vcf/region/all.mut.vcf |
     > fitness/other.fit.tsv
 
 cat fitness/other.fit.tsv |
-    tsv-summarize -g 7 --mean 6 --median 6 |
+    tsv-summarize -g 7 --count --mean 6 --median 6 |
     mlr --itsv --omd cat
 
 # combine 2 parts
 cat fitness/group.fit.tsv fitness/other.fit.tsv \
     > fitness/all.fit.tsv
+
+cat fitness/all.fit.tsv | wc -l
+#8454
+# 8454 - (179 - 66) = 8341
+# so some snps exist among groups
+
+# number of snps among groups
+cat fitness/group.fit.tsv |
+    tsv-summarize -g 1 --count |
+    mlr --itsv --omd cat
 ```
 
 `group.fit.tsv`:
 
-| Nonsynonymous_mutation | 0.991225602326 | 0.99691229925  |
-|------------------------|----------------|----------------|
-| Synonymous_mutation    | 0.988202180851 | 0.991590123125 |
-| Nonsense_mutation      | 0.944125370952 | 0.949334339282 |
+| Nonsynonymous_mutation | 33  | 0.987204450667 | 0.98809565525  |
+|------------------------|-----|----------------|----------------|
+| Synonymous_mutation    | 30  | 0.990295101505 | 0.99229843675  |
+| Nonsense_mutation      | 3   | 0.92759421177  | 0.904949830064 |
 
 `other.fit.tsv`:
 
-| Nonsynonymous_mutation | 0.984944235527 | 0.98805154375  |
-|------------------------|----------------|----------------|
-| Synonymous_mutation    | 0.987772083901 | 0.988734612306 |
-| Nonsense_mutation      | 0.934085408798 | 0.939873592125 |
+| Nonsynonymous_mutation | 6273 | 0.984944235527 | 0.98805154375  |
+|------------------------|------|----------------|----------------|
+| Synonymous_mutation    | 1836 | 0.987772083901 | 0.988734612306 |
+| Nonsense_mutation      | 166  | 0.934085408798 | 0.939873592125 |
 
-- Count different fitness format and plot
+| Bakery       | 5   |
+|--------------|-----|
+| Beer         | 13  |
+| Bioethanol   | 6   |
+| Cider        | 4   |
+| Clinical     | 10  |
+| Dairy        | 5   |
+| Distillery   | 11  |
+| Fermentation | 9   |
+| Flower       | 4   |
+| Fruit        | 10  |
+| Human        | 7   |
+| Industrial   | 6   |
+| Insect       | 5   |
+| Lab_strain   | 4   |
+| Nature       | 14  |
+| Palm_wine    | 9   |
+| Sake         | 6   |
+| Soil         | 9   |
+| Tree         | 12  |
+| Unknown      | 10  |
+| Water        | 4   |
+| Wine         | 16  |
 
 ```bash
 cd ~/data/yeast/fitness
 
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-summarize --group-by 7 --count |
-    mlr --itsv --omd cat
+# 
 
 cat all.fit.tsv |
     tsv-filter --str-ne 1:other |
