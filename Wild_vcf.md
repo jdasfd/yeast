@@ -466,6 +466,42 @@ cat all.fit.tsv |
     tsv-filter --str-eq 7:Nonsense_mutation --str-ne 1:other \
     > nonsense.tsv
 ```
+
+- Basic info
+
+```bash
+cd ~/data/yeast/fitness
+
+# all repeated snps
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-summarize -g 2,3,4,5 --count |
+    tsv-filter --gt 5:1 |
+    tsv-sort -r -nk 5,5 |
+    parallel --col-sep "\t" -j 6 -k '
+        gene=$(cat ../vcf/region/region_name.tsv |
+                  tsv-filter --str-eq 3:{1} --le 4:{2} --ge 5:{2} |
+                  tsv-select -f 1)
+        echo -e "${gene}\t{1}\t{2}\t{3}\t{4}\t{5}"
+    ' | mlr --itsv --omd cat
+
+# fitness mean and median
+# uniq snps from different groups
+# snps existent in wild groups
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-uniq -f 2,3,4,5 |
+    tsv-summarize -g 7 --count --mean 6 --median 6 |
+    sed '1itype\tnum\tfit_mean\tfit_median' |
+    mlr --itsv --omd cat
+
+# snps nonexistent in wild groups
+cat all.fit.tsv |
+    tsv-filter --str-eq 1:other |
+    tsv-summarize -g 7 --count --mean 6 --median 6 |
+    sed '1itype\tnum\tfit_mean\tfit_median' |
+    mlr --itsv --omd cat
+
 # number of snps among groups
 cat fitness/group.fit.tsv |
     tsv-summarize -g 1 --count |
@@ -475,47 +511,74 @@ cat fitness/group.fit.tsv |
 `group.fit.tsv`:
 
 | Nonsynonymous_mutation | 89  | 0.991225602326 | 0.99691229925  |
+repeated snps:
+
+| TSR2  | XII  | 1006428 | T   | C   | 22  |
+|-------|------|---------|-----|-----|-----|
+| IES6  | V    | 69766   | A   | G   | 22  |
+| BFR1  | XV   | 718752  | T   | C   | 21  |
+| EST1  | XII  | 607457  | T   | C   | 21  |
+| RPL39 | X    | 76457   | A   | T   | 5   |
+| CCW12 | XII  | 369768  | T   | C   | 4   |
+| BUD23 | III  | 210821  | G   | A   | 4   |
+| RPS7A | XV   | 506434  | A   | G   | 3   |
+| RPL39 | X    | 76435   | T   | C   | 3   |
+| RPL39 | X    | 76417   | C   | T   | 3   |
+| PRS3  | VIII | 80765   | C   | T   | 3   |
+| SNF6  | VIII | 54942   | T   | A   | 3   |
+| GET1  | VII  | 457187  | G   | A   | 3   |
+| BUD23 | III  | 210807  | G   | A   | 3   |
+| BFR1  | XV   | 718726  | T   | A   | 2   |
+| TSR2  | XII  | 1006524 | C   | G   | 2   |
+| TSR2  | XII  | 1006437 | T   | A   | 2   |
+| LSM1  | X    | 187267  | G   | A   | 2   |
+| VMA21 | VII  | 698670  | C   | T   | 2   |
+| ADA2  | IV   | 1356180 | C   | T   | 2   |
+| ADA2  | IV   | 1356133 | T   | C   | 2   |
+
+existent snps:
+
+| type                   | num | fit_mean       | fit_median     |
 |------------------------|-----|----------------|----------------|
-| Synonymous_mutation    | 86  | 0.988202180851 | 0.991590123125 |
-| Nonsense_mutation      | 4   | 0.944125370952 | 0.949334339282 |
-
-uniq all snps
-
 | Nonsynonymous_mutation | 33  | 0.987204450667 | 0.98809565525  |
-|------------------------|-----|----------------|----------------|
 | Synonymous_mutation    | 30  | 0.990295101505 | 0.99229843675  |
 | Nonsense_mutation      | 3   | 0.92759421177  | 0.904949830064 |
 
-`other.fit.tsv`:
+nonexistent snps:
 
-| Nonsynonymous_mutation | 6273 | 0.984944235527 | 0.98805154375  |
+| type                   | num  | fit_mean       | fit_median     |
 |------------------------|------|----------------|----------------|
+| Nonsynonymous_mutation | 6273 | 0.984944235527 | 0.98805154375  |
 | Synonymous_mutation    | 1836 | 0.987772083901 | 0.988734612306 |
 | Nonsense_mutation      | 166  | 0.934085408798 | 0.939873592125 |
 
-| Bakery       | 5   |
+number of snps among groups:
+
+| group        | num |
 |--------------|-----|
-| Beer         | 13  |
-| Bioethanol   | 6   |
-| Cider        | 4   |
-| Clinical     | 10  |
-| Dairy        | 5   |
-| Distillery   | 11  |
-| Fermentation | 9   |
-| Flower       | 4   |
-| Fruit        | 10  |
-| Human        | 7   |
-| Industrial   | 6   |
-| Insect       | 5   |
-| Lab_strain   | 4   |
-| Nature       | 14  |
-| Palm_wine    | 9   |
-| Sake         | 6   |
-| Soil         | 9   |
-| Tree         | 12  |
-| Unknown      | 10  |
-| Water        | 4   |
 | Wine         | 16  |
+| Nature       | 14  |
+| Beer         | 13  |
+| Tree         | 12  |
+| Distillery   | 11  |
+| Unknown      | 10  |
+| Fruit        | 10  |
+| Clinical     | 10  |
+| Soil         | 9   |
+| Palm_wine    | 9   |
+| Fermentation | 9   |
+| Human        | 7   |
+| Sake         | 6   |
+| Industrial   | 6   |
+| Bioethanol   | 6   |
+| Insect       | 5   |
+| Dairy        | 5   |
+| Bakery       | 5   |
+| Water        | 4   |
+| Lab_strain   | 4   |
+| Flower       | 4   |
+| Cider        | 4   |
+
 
 ```bash
 cd ~/data/yeast/fitness
