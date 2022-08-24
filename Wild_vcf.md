@@ -503,14 +503,14 @@ cat all.fit.tsv |
     mlr --itsv --omd cat
 
 # number of snps among groups
-cat fitness/group.fit.tsv |
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
     tsv-summarize -g 1 --count |
+    tsv-sort -nk 2,2 -r |
+    sed '1igroup\tnum' |
     mlr --itsv --omd cat
 ```
 
-`group.fit.tsv`:
-
-| Nonsynonymous_mutation | 89  | 0.991225602326 | 0.99691229925  |
 repeated snps:
 
 | TSR2  | XII  | 1006428 | T   | C   | 22  |
