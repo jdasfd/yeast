@@ -460,6 +460,11 @@ cat fitness/all.fit.tsv | wc -l
 # so some snps exist among groups
 
 rm fitness/group.fit.tsv fitness/other.fit.tsv
+
+# all nonsense mutations in wild
+cat all.fit.tsv |
+    tsv-filter --str-eq 7:Nonsense_mutation --str-ne 1:other \
+    > nonsense.tsv
 ```
 # number of snps among groups
 cat fitness/group.fit.tsv |
@@ -515,10 +520,6 @@ uniq all snps
 ```bash
 cd ~/data/yeast/fitness
 
-# all nonsense mutations in wild
-cat all.fit.tsv |
-    tsv-filter --str-eq 7:Nonsense_mutation --str-ne 1:other \
-    > nonsense.tsv
 
 # 0.05 as cutoff
 cat all.fit.tsv |
