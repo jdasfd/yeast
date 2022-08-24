@@ -502,6 +502,15 @@ cat all.fit.tsv |
     sed '1itype\tnum\tfit_mean\tfit_median' |
     mlr --itsv --omd cat
 
+# freq mean and median
+# snps existent in wild groups
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-uniq -f 2,3,4,5 |
+    tsv-summarize -g 7 --count --mean 8 --median 8 |
+    sed '1itype\tnum\tfreq_mean\tfreq_median' |
+    mlr --itsv --omd cat
+
 # number of snps among groups
 cat all.fit.tsv |
     tsv-filter --str-ne 1:other |
@@ -536,7 +545,7 @@ repeated snps:
 | ADA2  | IV   | 1356180 | C   | T   | 2   |
 | ADA2  | IV   | 1356133 | T   | C   | 2   |
 
-existent snps:
+existent snps fit:
 
 | type                   | num | fit_mean       | fit_median     |
 |------------------------|-----|----------------|----------------|
@@ -544,13 +553,21 @@ existent snps:
 | Synonymous_mutation    | 30  | 0.990295101505 | 0.99229843675  |
 | Nonsense_mutation      | 3   | 0.92759421177  | 0.904949830064 |
 
-nonexistent snps:
+nonexistent snps fit:
 
 | type                   | num  | fit_mean       | fit_median     |
 |------------------------|------|----------------|----------------|
 | Nonsynonymous_mutation | 6273 | 0.984944235527 | 0.98805154375  |
 | Synonymous_mutation    | 1836 | 0.987772083901 | 0.988734612306 |
 | Nonsense_mutation      | 166  | 0.934085408798 | 0.939873592125 |
+
+existent snps freq:
+
+| type                   | num | freq_mean       | freq_median |
+|------------------------|-----|-----------------|-------------|
+| Nonsynonymous_mutation | 33  | 0.0385074172727 | 0.0212766   |
+| Synonymous_mutation    | 30  | 0.0821522103333 | 0.0344828   |
+| Nonsense_mutation      | 3   | 0.0585839666667 | 0.0789474   |
 
 number of snps among groups:
 
