@@ -392,9 +392,9 @@ done
 
 ## Statistical analysis
 
-### Join analysis
+### Combine vcf with fitness
 
-- Join fitness data to vcf
+- Add fitness data to vcf
 
 ```bash
 mkdir ~/data/yeast/vcf/fit
@@ -415,7 +415,12 @@ wc -l vcf/fit/*.fit.tsv
 #  179 total
 # 8341 muts, only 513 muts were existed among all wild groups
 
-rm fitness/group.fit.tsv
+if [[ -f fitness/group.fit.tsv ]]; then
+    rm fitness/group.fit.tsv
+    echo 'Clear'
+else
+    echo 'Empty'
+fi
 
 # mv all fitness into one tsv file
 for group in $(cat isolates/group.lst)
@@ -437,16 +442,6 @@ cat fitness/group.fit.tsv |
 # totally 66 snps ( 1 snp may exists more than 1 group)
 # but 1 snp may have different freq among groups
 
-# calculate 
-cat fitness/group.fit.tsv |
-    tsv-summarize -g 7 --count --mean 6 --median 6 |
-    mlr --itsv --omd cat
-
-cat fitness/group.fit.tsv |
-    tsv-uniq -f 2,3,4,5 |
-    tsv-summarize -g 7 --count --mean 6 --median 6 |
-    mlr --itsv --omd cat
-
 # other muts without occurring among all groups
 cat vcf/region/all.mut.vcf |
     tsv-join -k 1,2,3,4 \
@@ -454,10 +449,6 @@ cat vcf/region/all.mut.vcf |
     --exclude |
     awk '{print ("other" "\t" $0 "\t" "0" "\t" "-" "\t" "-")}' \
     > fitness/other.fit.tsv
-
-cat fitness/other.fit.tsv |
-    tsv-summarize -g 7 --count --mean 6 --median 6 |
-    mlr --itsv --omd cat
 
 # combine 2 parts
 cat fitness/group.fit.tsv fitness/other.fit.tsv \
@@ -468,6 +459,8 @@ cat fitness/all.fit.tsv | wc -l
 # 8454 - (179 - 66) = 8341
 # so some snps exist among groups
 
+rm fitness/group.fit.tsv fitness/other.fit.tsv
+```
 # number of snps among groups
 cat fitness/group.fit.tsv |
     tsv-summarize -g 1 --count |
