@@ -144,7 +144,8 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM7_ESM.xlsx \
     $primer = $1;
     print "$gene\t$primer";
     ' |
-    uniq \
+    uniq |
+    sed 's/Reverse_i7/R/'\
     > info/DFE_seq_primers.tsv
 
 cat info/DFE_seq_primers.tsv |
@@ -155,27 +156,9 @@ cat info/DFE_seq_primers.tsv |
     > info/gene.lst
 ```
 
-### Grouping files according to genes
+### Comparing SE and PE
 
-First, using SE files to estimate fitness. Later the PE files will be used for its original sequencing method.
-
-```bash
-cd ~/data/yeast
-
-cat info/gene_time.tsv |
-    sed '1d' |
-    parallel --col-sep "\t" -k -j 4 '
-    if ! [[ -d trim/repeat{3} ]]; then
-        mkdir trim/repeat{3}
-    fi
-    cp ena/{5}_1.fastq.gz trim/repeat{3}/{1}_{2}_{3}.fastq.gz
-    gzip -d trim/repeat{3}/{1}_{2}_{3}.fastq.gz
-    '
-```
-
-## Trimming
-
-According to the article, Illumina 
+According to the article, Illumina
 
 ```bash
 mkdir ~/data/yeast/trim
@@ -203,32 +186,51 @@ faops filter -l 0 SRR15274411_2.dedup.fastq stdout | grep '^>' | wc -l
 
 So for pair-end UMIs, two different files were slightly different after filtering by UMIs.
 
-```bash
-bbmerge.sh in1=SRR15273966_1.fastq in2=SRR15273966_2.fastq \
-    interleaved=false out=SRR15273966.merge.fastq
+### Dealing with UMIs
 
-faops size SRR15273966.merge.fastq |
-    cut -f 2 |
-    sort |
-    uniq |
-    tsv-summarize --max 1 --min 1
-#309  101
+First, using SE files to estimate fitness. How to deal with PE UMI-seq files will be studied afterwards.
+
+- Grouping files
+
+```bash
+cd ~/data/yeast
+
+# grouping and decompress for AmpUMI using
+cat info/gene_time.tsv |
+    sed '1d' |
+    parallel --col-sep "\t" -k -j 4 '
+    if ! [[ -d trim/repeat{3} ]]; then
+        mkdir trim/repeat{3}
+    fi
+    cp ena/{5}_1.fastq.gz trim/repeat{3}/{1}_{2}_{3}.fastq.gz
+    gzip -d trim/repeat{3}/{1}_{2}_{3}.fastq.gz
+    '
 ```
 
-It is meaning that the merge will not be automatically adapted to amplicon sequencing, so the method should be changed.
+- AmpUMI
+
+Because `AmpUMI` only accepts decompressed files and does not accept input from stdin, so the input files are renamed and provided after grouping them.
+
+The UMI sequences could be accepted by `AmpUMI`, so all the primers were included into the process.
 
 ```bash
-for gene in $(ls | perl -p -e 's/_.+$//')
+cd ~/data/yeast
+
+for gene in $(cat info/gene.lst)
 do
-    echo $gene
-    cat ${gene}_genetic_interactions.txt |
-        grep -v '^!' |
-        grep -v '^\s*$' |
-        sed '1d' |
-        tsv-select -f 1,3,6,8 |
-        tsv-filter --not-iregex 3:"Dosage" |
-        tsv-filter --not-iregex 3:"Rescue" |
-        tsv-summarize --group-by 4 --count
-    echo
+    umi=$(cat info/DFE_seq_primers.tsv |
+          tsv-filter --str-eq 1:${gene}_F |
+          tsv-select -f 2)
+    AmpUMI.py Process --fastq trim/repeat0/${gene}_t0_0.fastq \
+        --fastq_out trim/repeat0/${gene}_t0_0.dedup.fastq \
+        --umi_regex $umi \
+        --write_UMI_counts \
+        --write_alleles_with_multiple_UMIs
 done
+```
+
+### Counting mutations
+
+```bash
+
 ```
