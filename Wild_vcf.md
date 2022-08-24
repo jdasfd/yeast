@@ -264,6 +264,21 @@ done
 mkdir ~/data/yeast/vcf/region
 cd ~/data/yeast/vcf
 
+# region containing gene name
+rm region/region_name.tsv
+
+for gene in $(cat ../gene/stdname.lst)
+do
+    cat ../gene/${gene}/${gene}_region.tsv >> region/region_name.tsv
+done
+
+cat region/region_name.tsv |
+    tsv-join -k 1 --filter-file ../gene/sys_stdname.tsv \
+    --append-fields 2 |
+    tsv-select -f 5,1,2,3,4 > tmp \
+    && mv tmp region/region_name.tsv
+
+# .bed file for bcftools
 echo -e "#CHROM\tPOS\tEND" > region/region.bed
 
 for gene in $(cat ../gene/stdname.lst)
