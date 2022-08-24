@@ -106,25 +106,30 @@ md5sum --check ena_info.md5.txt
 # check if there was any mistake during downloading
 ```
 
-## Info
+## Grouping seq files
+
+### Get info
 
 `mkdir -p ~/data/yeast/info`
 
 Download all supplementary files and tables from the [website](https://www.nature.com/articles/s41586-022-04823-w) and save them into info dir.
 
 ```bash
-mkdir -p ~/data/yeast/info
+mkdir -p ~/data/yeast/trim
 cd ~/data/yeast
 
 # get all DNA and RNA seq files
-cat ../ena/ena_info.csv |
+cat ena/ena_info.csv |
     mlr --icsv --otsv cat |
     tsv-select -H -f name,srx,srr |
     tsv-filter -H --regex 'name:\.t\d' |
-    sed 's/\./_/g' \
-    > gene_time.tsv
+    sed '1d' | 
+    tr '.' '\t' |
+    sed 's/t0/t0\t0/' |
+    sed '1igene\ttime\tgroup\tsrx\tsrr' \
+    > info/gene_time.tsv
 
-# 41586_2022_4823_MOESM7_ESM.xlsx contained multiple sheets
+# 41586_2022_4823_MOESM7_ESM.xlsx contains multiple sheets
 perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM7_ESM.xlsx \
     --sheet "YPD DFE Sequencing primers " |
     sed '1,2d' |
@@ -142,22 +147,29 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM7_ESM.xlsx \
     uniq \
     > info/DFE_seq_primers.tsv
 
-cat seq_primer.tsv |
+cat info/DFE_seq_primers.tsv |
     cut -f 1 |
     cut -d '_' -f 1 |
-    sort | uniq \
-    > gene.lst
+    sort |
+    uniq \
+    > info/gene.lst
+```
 
-cat gene.lst |
-    parallel -j 1 -k '
-    echo "==> Trim {}"
-    Fp=$(cat seq_primer.tsv | tsv-filter --str-eq 1:${}_amp_F | cut -f 2)
-    Rp=$(cat seq_primer.tsv | tsv-filter --str-eq 1:${}_amp_R | cut -f 2)
-    
-    for file=$(cat gene_time.tsv | grep {} | cut -f 3)
-    do
-        trim_galore ../ena/${file}_1
-    
+### Grouping files according to genes
+
+First, using SE files to estimate fitness. Later the PE files will be used for its original sequencing method.
+
+```bash
+cd ~/data/yeast
+
+cat info/gene_time.tsv |
+    sed '1d' |
+    parallel --col-sep "\t" -k -j 4 '
+    if ! [[ -d trim/repeat{3} ]]; then
+        mkdir trim/repeat{3}
+    fi
+    cp ena/{5}_1.fastq.gz trim/repeat{3}/{1}_{2}_{3}.fastq.gz
+    gzip -d trim/repeat{3}/{1}_{2}_{3}.fastq.gz
     '
 ```
 
