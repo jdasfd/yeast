@@ -579,9 +579,45 @@ number of snps among groups:
 | Flower       | 4   |
 | Cider        | 4   |
 
+- Chi-square
+
+The experiment from the original article was almost a simulation of random mutations. All detected mutations were not biased to either nonsynonymous mutation or synonymous mutation. So fixed SNPs after uniquified would be random as well if there were no other reasons.
 
 ```bash
-cd ~/data/yeast/fitness
+raw1=$(cat all.fit.tsv |
+          tsv-filter --str-ne 1:other |
+          tsv-uniq -f 2,3,4,5 |
+          tsv-summarize -g 7 --count |
+          tsv-filter --str-ne 1:Nonsense_mutation |
+          datamash transpose |
+          sed 1d)
+
+raw2=$(cat all.fit.tsv |
+          tsv-filter --str-eq 1:other |
+          tsv-summarize -g 7 --count |
+          tsv-filter --str-ne 1:Nonsense_mutation |
+          datamash transpose |
+          sed 1d)
+
+echo -e "$raw1\t$raw2" |
+    parallel --colsep '\t' -j 1 -k '
+        Rscript -e "
+            x <- matrix(c({1},{3},{2},{4}), ncol = 2)
+            old.warn <- options()$warn
+            options(warn = -1)
+            x
+            chisq.test(x)
+        "
+'
+#     [,1] [,2]
+#[1,]   33   30
+#[2,] 6273 1836
+#
+#        Pearson's Chi-squared test with Yates' continuity correction
+#
+#data:  x
+#X-squared = 20.74, df = 1, p-value = 5.262e-06
+```
 
 
 # 0.05 as cutoff
