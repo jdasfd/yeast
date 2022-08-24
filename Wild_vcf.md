@@ -693,4 +693,23 @@ p <- ggplot(fit, aes(x = type, y = fit)) +
      theme(axis.text.x = element_text(angle = 315))
 ggsave(p, height = 6, width = 15, file = "fitness_5.pdf")
 ' fitness_5.tsv
+
+# distribution of all muts fitness
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-uniq -f 2,3,4,5 |
+    tsv-select -f 6,7 |
+    sed '1ifit\ttype' \
+    > dist.tsv
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    fit <- read_tsv(args[1])
+    p <- ggplot(fit, aes(x = fit)) +
+         geom_histogram() +
+         facet_grid(~type)
+    ggsave(p, height = 6, width = 12, file = "dist.pdf")
+' dist.tsv
 ```
