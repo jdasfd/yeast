@@ -470,6 +470,7 @@ cat all.fit.tsv |
 - Basic info
 
 ```bash
+mkdir ~/data/yeast/fitness/freq
 cd ~/data/yeast/fitness
 
 # all repeated snps
@@ -484,6 +485,93 @@ cat all.fit.tsv |
                   tsv-select -f 1)
         echo -e "${gene}\t{1}\t{2}\t{3}\t{4}\t{5}"
     ' | mlr --itsv --omd cat
+
+# number of snps among groups
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-summarize -g 1 --count |
+    tsv-sort -nk 2,2 -r |
+    sed '1igroup\tnum' |
+    mlr --itsv --omd cat
+
+# freq among groups
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-select -f 2,3,4,5 |
+    tsv-uniq |
+    parallel --colsep '\t' -j 4 -k '
+        cat all.fit.tsv |
+        tsv-filter --str-eq 2:{1} --eq 3:{2} --str-eq 4:{3} --str-eq 5:{4} |
+        tsv-select -f 1,7,8 |
+        sed "1igroup\ttype\tfreq" \
+        > freq/{1}_{2}_{3}_{4}.tsv
+    '
+
+cd ~/data/yeast/fitness/freq
+
+for name in $(wc -l *.tsv |
+              grep -v 'total$' |
+              datamash reverse -W |
+              tsv-filter --eq 2:2 |
+              tsv-select -f 1)
+do
+    rm ${name}
+done
+
+for file in $(ls *.tsv)
+do
+    echo "==>${file}"
+    Rscript -e '
+        library(ggplot2)
+        library(readr)
+        args <- commandArgs(T)
+        freq <- read_tsv(args[1], show_col_types = FALSE)
+        save <- paste0(args[1], ".pdf")
+        p <- ggplot(freq, aes(x = group, y = freq))+
+             geom_col() +
+             theme(axis.text.x = element_text(angle = 315))
+        ggsave(p, height = 6, width = 10, file = save)
+    ' ${file}
+done
+
+cd ~/data/yeast/fitness
+# freq mean and median
+# snps existent in wild groups
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-uniq -f 2,3,4,5 |
+    tsv-summarize -g 7 --count --mean 8 --median 8 |
+    sed '1itype\tnum\tfreq_mean\tfreq_median' |
+    mlr --itsv --omd cat
+
+cat all.fit.tsv |
+    tsv-filter --str-ne 1:other |
+    tsv-summarize -g 1,7 --count --mean 8 --median 8 |
+    perl -nla -e '
+        print join("\t",@F) if $F[1] =~ s/^Non.+$/N_mut/;
+        print join("\t",@F) if $F[1] =~ s/^Sy.+$/S_mut/;
+    ' |
+    sed '1igroup\ttype\tnum\tfreq_mean\tfreq_median' \
+    > group_freq.tsv
+
+cat group_freq.tsv | mlr --itsv --omd cat
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    freq <- read_tsv(args[1], show_col_types = FALSE)
+    p1 <- ggplot(freq, aes(x = type, y = freq_mean))+
+         geom_col() +
+         theme(axis.text.x = element_text(angle = 315)) +
+         facet_grid(~group)
+    p2 <- ggplot(freq, aes(x = type, y = freq_median))+
+         geom_col() +
+         theme(axis.text.x = element_text(angle = 315)) +
+         facet_grid(~group)
+    ggsave(p1, height = 6, width = 15, file = "group_freq_mean.pdf")
+    ggsave(p2, height = 6, width = 15, file = "group_freq_median.pdf")
+' group_freq.tsv
 
 # fitness mean and median
 # uniq snps from different groups
@@ -500,23 +588,6 @@ cat all.fit.tsv |
     tsv-filter --str-eq 1:other |
     tsv-summarize -g 7 --count --mean 6 --median 6 |
     sed '1itype\tnum\tfit_mean\tfit_median' |
-    mlr --itsv --omd cat
-
-# freq mean and median
-# snps existent in wild groups
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-uniq -f 2,3,4,5 |
-    tsv-summarize -g 7 --count --mean 8 --median 8 |
-    sed '1itype\tnum\tfreq_mean\tfreq_median' |
-    mlr --itsv --omd cat
-
-# number of snps among groups
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-summarize -g 1 --count |
-    tsv-sort -nk 2,2 -r |
-    sed '1igroup\tnum' |
     mlr --itsv --omd cat
 ```
 
@@ -568,6 +639,56 @@ existent snps freq:
 | Nonsynonymous_mutation | 33  | 0.0385074172727 | 0.0212766   |
 | Synonymous_mutation    | 30  | 0.0821522103333 | 0.0344828   |
 | Nonsense_mutation      | 3   | 0.0585839666667 | 0.0789474   |
+
+| group        | type  | num | freq_mean       | freq_median |
+|--------------|-------|-----|-----------------|-------------|
+| Bakery       | N_mut | 3   | 0.1846847       | 0.216216    |
+| Bakery       | S_mut | 2   | 0.466216        | 0.466216    |
+| Beer         | N_mut | 7   | 0.0932202971429 | 0.0508475   |
+| Beer         | S_mut | 6   | 0.217513996667  | 0.08050825  |
+| Bioethanol   | N_mut | 2   | 0.277778        | 0.277778    |
+| Bioethanol   | S_mut | 4   | 0.259259125     | 0.0185185   |
+| Cider        | N_mut | 2   | 0.1911765       | 0.1911765   |
+| Cider        | S_mut | 2   | 0.2794115       | 0.2794115   |
+| Clinical     | N_mut | 6   | 0.101584015     | 0.016355145 |
+| Clinical     | S_mut | 4   | 0.236587375     | 0.1577544   |
+| Dairy        | N_mut | 3   | 0.475308666667  | 0.388889    |
+| Dairy        | S_mut | 2   | 0.5314815       | 0.5314815   |
+| Distillery   | S_mut | 6   | 0.160919566667  | 0.1034484   |
+| Distillery   | N_mut | 5   | 0.1896552       | 0.0344828   |
+| Fermentation | S_mut | 6   | 0.240740616667  | 0.1666665   |
+| Fermentation | N_mut | 3   | 0.4027776       | 0.333333    |
+| Flower       | N_mut | 2   | 0.285714        | 0.285714    |
+| Flower       | S_mut | 2   | 0.3571425       | 0.3571425   |
+| Fruit        | N_mut | 4   | 0.16489355      | 0.0851063   |
+| Fruit        | S_mut | 6   | 0.160471316667  | 0.04397165  |
+| Human        | N_mut | 2   | 0.44354855      | 0.44354855  |
+| Human        | S_mut | 5   | 0.43225804      | 0.403226    |
+| Industrial   | N_mut | 3   | 0.183333433333  | 0.25        |
+| Industrial   | S_mut | 3   | 0.3222221       | 0.1         |
+| Insect       | N_mut | 3   | 0.308333333333  | 0.225       |
+| Insect       | S_mut | 2   | 0.6375          | 0.6375      |
+| Lab_strain   | N_mut | 2   | 0.5             | 0.5         |
+| Lab_strain   | S_mut | 2   | 0.75            | 0.75        |
+| Nature       | N_mut | 8   | 0.0721625275    | 0.01442309  |
+| Nature       | S_mut | 6   | 0.139423056667  | 0.01923079  |
+| Palm_wine    | N_mut | 4   | 0.4124999       | 0.40833315  |
+| Palm_wine    | S_mut | 5   | 0.42333352      | 0.166667    |
+| Sake         | N_mut | 4   | 0.7202244       | 0.9298105   |
+| Sake         | S_mut | 2   | 0.994681        | 0.994681    |
+| Soil         | N_mut | 3   | 0.179824433333  | 0.0789474   |
+| Soil         | S_mut | 4   | 0.2302632       | 0.2039472   |
+| Soil         | N_mut | 2   | 0.0789474       | 0.0789474   |
+| Tree         | N_mut | 6   | 0.172433166667  | 0.0546875   |
+| Tree         | S_mut | 6   | 0.1961805       | 0.0234375   |
+| Unknown      | N_mut | 4   | 0.202711725     | 0.1375663   |
+| Unknown      | N_mut | 1   | 0.0178571       | 0.0178571   |
+| Unknown      | S_mut | 5   | 0.1607143       | 0.0357143   |
+| Water        | N_mut | 2   | 0.1578945       | 0.1578945   |
+| Water        | S_mut | 2   | 0.394737        | 0.394737    |
+| Wine         | N_mut | 11  | 0.0137648890909 | 0.00403226  |
+| Wine         | N_mut | 1   | 0.00201613      | 0.00201613  |
+| Wine         | S_mut | 4   | 0.03931439      | 0.019153215 |
 
 number of snps among groups:
 
