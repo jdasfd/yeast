@@ -14,6 +14,8 @@ There are some data from the [README.md](https://github.com/wang-q/pars#readme).
 
 ### Split strains from 1002 genomes project according to ecological groups
 
+- Acquire info and split to subgroups
+
 ```bash
 mkdir ~/data/yeast/isolates
 cd ~/data/yeast/isolates
@@ -55,7 +57,7 @@ wc -l *.lst
 # result is 1011 after subtraction, split correctly
 ```
 
-### Split according to groups from the `1011Matrix.gvcf.gz`
+- Split the `1011Matrix.gvcf.gz` into small files according to subgroups
 
 ```bash
 cd ~/data/yeast
@@ -84,7 +86,9 @@ parallel -j 4 " \
 " ::: $(ls *.bcf)
 ```
 
-### Extract all mutations in vcf-like format
+### Extract 21 genes name
+
+According to SGD, there is system name and standard name for one same gene. The standard name was accepted in the article. When it comes to different processes, it should be aware of the name of genes.
 
 ```bash
 cd ~/data/yeast
@@ -137,27 +141,6 @@ cat gene/std_sysname.tsv |
 ```bash
 cd ~/data/yeast
 
-# original data from the fig2e provided all muts found in other 5 yeast strains 
-perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
-    --sheet "Fig. 2e" |
-    sed 1,3d |
-    tsv-select -d, -f 3,5 |
-    tsv-summarize -d, -g 1,2 --count |
-    mlr --icsv --omd cat
-```
-
-| Nonsynonymous_mutation | No  | 5839 |
-|------------------------|-----|------|
-| Nonsynonymous_mutation | Yes | 169  |
-| Synonymous_mutation    | No  | 1087 |
-| Synonymous_mutation    | Yes | 714  |
-| Nonsense_mutation      | No  | 146  |
-
-"Yes" here meant muts could be found in at least one of nearest 5 yeast species. There were more than 800 muts existed among other yeast groups. 
-
-```bash
-cd ~/data/yeast
-
 # average fitness of muts were not all available
 # remove those #DIV/0!
 perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
@@ -169,35 +152,36 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
     tsv-filter --not-iregex 5:# \
     > info/fit.tsv
 
-for gene in $(cat gene/stdname.lst)
-do
-    echo "==> ${gene}"
+# get fa according to the article info
+# all detected muts were included
+cd ~/data/yeast/gene
+rm gene.mut.fa
 
-    if ! [ -d gene/${gene} ]
-    then
-        mkdir gene/${gene}
-    fi
-
-    cat info/fit.tsv |
-        grep "^$gene" \
-        > gene/${gene}/${gene}.tsv
-done
-
-# extract 150 coding regions (detected)
-for gene in $(cat gene/stdname.lst)
+for gene in $(cat stdname.lst)
 do
     echo "==> ${gene}"
 
     echo ">${gene}" \
-        > gene/${gene}/${gene}.mut.fa
+        >> gene.mut.fa
 
-    cat gene/${gene}/${gene}.tsv |
+    cat ../info/fit.tsv |
+        grep "^$gene" |
         tsv-select -f 1,2,3 |
         tsv-uniq |
         sort -nk 2,2 |
         perl -nae 'print $F[2]; END{print qq{\n};}' \
-        >> gene/${gene}/${gene}.mut.fa
+        >> gene.mut.fa
 done
+
+# formatdb
+makeblastdb -dbtype nucl -in S288c.fa -parse_seqids
+
+# blast every transcripts against genome
+blastn -task blastn -evalue 1e-3 -num_threads 4 -num_descriptions 10 -num_alignments 10 -outfmt 0 \
+    -dust yes -soft_masking true \
+    -db S288c.fa -query gene.mut.fa -out gene.blast
+
+perl ~/Scripts/pars/blastn_transcript.pl -f gene.blast -m 0
 
 # extract CDS region
 # because of the coding region was selected from the SGD coding region
@@ -205,16 +189,19 @@ faops some ../mrna-structure/sgd/orf_genomic_all.fasta \
     gene/sysname.lst gene/21orf.fa
 
 # rename by standard name
-faops replace -l 0 gene/21orf.fa gene/sys_stdname.tsv gene/std_orf.fa
+faops replace -l 0 gene/21orf.fa \
+    <(cat gene/std_sysname.tsv | tsv-select -f 2,1) \
+    gene/std_orf.fa
 
-rm 21orf.fa
+rm gene/21orf.fa
 
-# align to the gene
+# align to the CDS
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
     
-    cat <(faops one -l 0 gene/std_orf.fa ${gene} stdout) gene/${gene}/${gene}.mut.fa |
+    cat  gene/${gene}/${gene}.mut.fa \
+        <(faops one -l 0 gene/std_orf.fa ${gene} stdout) |
         muscle -out gene/${gene}/${gene}.aln.fa -quiet
 done
 
@@ -223,8 +210,32 @@ cat ../mrna-structure/sgd/saccharomyces_cerevisiae.gff |
     perl -nla -e '
     next if /^#/;
     next if /^[ATCG]/;
-    print "$F[0]\t$F[3]\t$F[4]\t$F[8]" if ($F[2] eq CDS);
+    if ($F[2] eq CDS){
+        $F[8] =~ /Name=(.+)_CDS/;
+        $name = $1;
+        print "$F[0]\t$F[3]\t$F[4]\t$name";
+        }
     ' > gene/CDS.gff
+
+for gene in $(cat gene/stdname.lst)
+do
+    echo "==> ${gene}"
+
+    sys=$(cat gene/std_sysname.tsv |
+              tsv-filter --str-eq 1:${gene} |
+              tsv-select -f 2)
+
+    cat gene/CDS.gff |
+        tsv-filter --iregex 4:${sys} |
+        perl -nla -e '
+        $F[0] =~ /^chr(.+)/;
+        $chr = $1;
+        $F[3] =~ /Name=(.+)_CDS/;
+        $name = $1;
+        print "$name\t$chr\t$F[1]\t$F[2]";
+        ' \
+        > gene/${gene}/${gene}_region.tsv
+done
 
 for gene in $(cat gene/stdname.lst)
 do
