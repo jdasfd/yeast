@@ -155,6 +155,9 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
 
 "Yes" here meant muts could be found in at least one of nearest 5 yeast species. There were more than 800 muts existed among other yeast groups. 
 
+```bash
+cd ~/data/yeast
+
 # average fitness of muts were not all available
 # remove those #DIV/0!
 perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
@@ -185,33 +188,15 @@ for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
 
-    # count num of muts for every gene
-    cat gene/${gene}/${gene}.tsv |
-        tsv-select -f 1,2,3 |
-        tsv-uniq |
-        sort -nk 2,2 |
-        wc -l
-
     echo ">${gene}" \
         > gene/${gene}/${gene}.mut.fa
 
     cat gene/${gene}/${gene}.tsv |
         tsv-select -f 1,2,3 |
         tsv-uniq |
-        sort -nk 2,2 | 
-        perl -nae '
-        chomp;
-        $i = 1 if ($F[1] == 1);
-        if($F[1] eq $i){
-            print "$F[2]";
-            $i++;
-        }else{
-            print "-";
-            $i++;
-            redo;
-        }
-        END{print "\n";}
-        ' >> gene/${gene}/${gene}.mut.fa
+        sort -nk 2,2 |
+        perl -nae 'print $F[2]; END{print qq{\n};}' \
+        >> gene/${gene}/${gene}.mut.fa
 done
 
 # extract CDS region
@@ -222,12 +207,14 @@ faops some ../mrna-structure/sgd/orf_genomic_all.fasta \
 # rename by standard name
 faops replace -l 0 gene/21orf.fa gene/sys_stdname.tsv gene/std_orf.fa
 
+rm 21orf.fa
+
 # align to the gene
 for gene in $(cat gene/stdname.lst)
 do
     echo "==> ${gene}"
-    faops one -l 0 gene/std_orf.fa ${gene} gene/${gene}/${gene}.fa
-    cat gene/${gene}/${gene}.fa gene/${gene}/${gene}.mut.fa |
+    
+    cat <(faops one -l 0 gene/std_orf.fa ${gene} stdout) gene/${gene}/${gene}.mut.fa |
         muscle -out gene/${gene}/${gene}.aln.fa -quiet
 done
 
