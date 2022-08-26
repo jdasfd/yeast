@@ -130,17 +130,30 @@ wc -l gene/std_sysname.tsv
 cat gene/std_sysname.tsv |
     tsv-select -f 2 \
     > gene/sysname.lst
-
-cat gene/std_sysname.tsv |
-    tsv-select -f 2,1 \
-    > gene/sys_stdname.tsv
-# change standard names and system names
 ```
 
 ### Locating mutations on the genome scale.
 
 ```bash
 cd ~/data/yeast
+
+# original data from the fig2e provided all muts found in other 5 yeast strains 
+perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
+    --sheet "Fig. 2e" |
+    sed 1,3d |
+    tsv-select -d, -f 3,5 |
+    tsv-summarize -d, -g 1,2 --count |
+    mlr --icsv --omd cat
+```
+
+| Nonsynonymous_mutation | No  | 5839 |
+|------------------------|-----|------|
+| Nonsynonymous_mutation | Yes | 169  |
+| Synonymous_mutation    | No  | 1087 |
+| Synonymous_mutation    | Yes | 714  |
+| Nonsense_mutation      | No  | 146  |
+
+"Yes" here meant muts could be found in at least one of nearest 5 yeast species. There were more than 800 muts existed among other yeast groups. 
 
 # average fitness of muts were not all available
 # remove those #DIV/0!
