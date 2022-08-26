@@ -232,5 +232,18 @@ done
 ### Counting mutations
 
 ```bash
+mkdir ~/data/yeast/trim/gene
+cd ~/data/yeast/trim/gene
+
+for gene in $(cat ../../info/gene.lst)
+do
+    cp ../../gene/${gene}/${gene}.fa ${gene}.fa
+    makeblastdb -dbtype nucl -in ${gene}.fa -parse_seqids
+
+    blastn -task blastn -evalue 1e-3 -num_threads 6 -num_descriptions 10 -num_alignments 10 -outfmt 0 \
+    -dust yes -soft_masking true \
+    -db ${gene}.fa -query ../PARS10/sce_genes.fasta -out sce_genes.blast
+done
+
 
 ```
