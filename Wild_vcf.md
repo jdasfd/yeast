@@ -645,6 +645,25 @@ Rscript -e '
     ggsave(p1, height = 6, width = 15, file = "../results/group.highfreq.mean.bar.pdf")
     ggsave(p2, height = 6, width = 15, file = "../results/group.highfreq.median.bar.pdf")
 ' ../results/group.highfreq.bar.tsv
+
+# distribution of freq
+# all unique detected snps
+cat all.vcf.tsv |
+    tsv-select -f 11,5,9 |
+    sed '1igroup\tfreq\ttype' \
+    > ../results/dist.freq.tsv
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    library(gridExtra)
+    args <- commandArgs(T)
+    freq <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(freq, aes(x = freq, fill = type, color = type)) +
+         geom_histogram(alpha = 0.2, position = "dodge") +
+         facet_grid(~group)
+    ggsave(p, height = 6, width = 45, file = "../results/dist.freq.pdf")
+' ../results/dist.freq.tsv
 ```
 
 | group        | type                   | num | freq_mean       | freq_median |
