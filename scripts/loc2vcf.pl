@@ -4,6 +4,7 @@ use warnings;
 
 use Getopt::Long;
 use Path::Tiny;
+use Data::Dumper;
 
 #----------------------------------------------------------#
 # GetOpt section
@@ -15,29 +16,30 @@ loc2vcf.pl - convert gene pos to genome loc and output vcf
 
 =head1 SYNOPSIS
 
-    perl loc2vcf.pl -r <region file> -l <list file> -a <aln format file> [options]
+    perl loc2vcf.pl [options]
       Options:
         --help          -?          brief help message
-        --region        -r  STR     region file in bed4 format
+        --blast         -b  STR     blast result
         --tsv           -t  STR     tsv file in gene-pos-REF-ALT-fit-mut format
-        --aln           -a  STR     aln format file contains alignment info
 
-    perl loc2vcf.pl -r region.tsv -t gene.tsv -a gene.aln.fa
+    perl loc2vcf.pl -r region.tsv -t gene.tsv
+
+    All output is using stdout. Please using pipe or redirect in linux.
 
 =cut
 
 GetOptions(
     'help|?'        => sub { Getopt::Long::HelpMessage(0) },
-    'region|r=s'    => \( my $region_file ),
+    'blast|b=s'     => \( my $blast_file ),
     'tsv|t=s'       => \( my $tsv_file ),
-    'aln|a=s'       => \( my $aln_file ),
+    'output|o=s'    => \( my $output_file ),
 ) or Getopt::Long::HelpMessage(1);
 
-if ( !defined $region_file ) {
+if ( !defined $blast_file ) {
     die Getopt::Long::HelpMessage(1);
 }
-elsif ( !path($region_file)->is_file ) {
-    die "Error: can't find file [$region_file]";
+elsif ( !path($blast_file)->is_file ) {
+    die "Error: can't find file [$blast_file]";
 }
 
 if ( !defined $tsv_file ) {
@@ -47,51 +49,75 @@ elsif ( !path($tsv_file)->is_file ) {
     die "Error: can't find file [$tsv_file]";
 }
 
-if ( !defined $aln_file ) {
-    die Getopt::Long::HelpMessage(1);
-}
-elsif ( !path($aln_file)->is_file ) {
-    die "Error: can't find file [$aln_file]";
-}
-
 #----------------------------------------------------------#
 # init
 #----------------------------------------------------------#
 
-my $loc_num;
-my ($chr, $reg_start, $reg_end);
-my $genom_loc;
+my %gene_info;
+my ($gene, $chr, $start, $end, $strand);
 
-$region_file = path($region_file)->absolute->stringify;
-$tsv_file = path($tsv_file)->absolute->stringify;
-$aln_file = path($aln_file)->absolute->stringify;
+# blast results input and save them to a hash
+open my $b_in, '<', $blast_file;
 
-open my $r_in, '<', $region_file;
-while(<$r_in>){
+while(<$b_in>){
     chomp;
-    ($chr, $reg_start, $reg_end) = (split/\t/, $_)[1,2,3];
+    ($gene, $chr, $start, $end, $strand) = (split/\t/, $_)[0,2,3,4,5];
+    $gene_info{$gene} = [$chr, $start, $end, $strand];
 }
-close $r_in;
 
-open my $a_in, '<', $aln_file;
-while(<$a_in>){
+close $b_in;
+
+# print Dumper(\%gene_info);
+
+# tsv2vcf according to genome location
+open my $t_in, '<', $tsv_file;
+
+while(<$t_in>){
     chomp;
-    next if /^>/;
-    next if /^[ATCG]/;
-    my $length = /^(-+)[ATCG]/;
-    $loc_num = length($length);
+    my ($in_gene, $loc, $ref, $alt, $fit, $type) = split/\t/, $_;
+    if ($gene_info{$in_gene} -> [3] eq "+"){
+        my $start = $gene_info{$in_gene} -> [1];
+        my $genom_loc = $start + $loc - 1;
+        my $chr = $gene_info{$in_gene} -> [0];
+        print "$chr\t$genom_loc\t$ref\t$alt\t$fit\t$type\n";
+    }
+    elsif ($gene_info{$in_gene} -> [3] eq "-"){
+        my $start = $gene_info{$in_gene} -> [2];
+        my $genom_loc = $start - $loc + 1;
+        my $ref_re = &rebase($ref);
+        my $alt_re = &rebase($alt);
+        my $chr = $gene_info{$in_gene} -> [0];
+        print "$chr\t$genom_loc\t$ref_re\t$alt_re\t$fit\t$type\n";
+    }
 }
-close $a_in;
 
-$genom_loc = $reg_start + $loc_num;
+close $t_in;
 
-open my $l_in, '<', $tsv_file;
-while(<$l_in>){
-    chomp;
-    my ($ch_loc, $ref, $alt, $fit, $type) = (split /\t/, $_)[1,2,3,4,5];
-    $ch_loc = $ch_loc + $genom_loc - 1;
-    print "$chr\t$ch_loc\t$ref\t$alt\t$fit\t$type\n";
+#----------------------------------------------------------#
+# Subroutines
+#----------------------------------------------------------#
+
+sub rebase {
+    my $base = shift;
+    my $re_base;
+
+    if ($base eq "A"){
+        $re_base = "T";
+    }
+    elsif($base eq "T"){
+        $re_base = "A";
+    }
+    elsif($base eq "G"){
+        $re_base = "C";
+    }
+    elsif($base eq "C"){
+        $re_base = "G";
+    }
+    else{
+        $re_base = "N";
+    }
+
+    return $re_base;
 }
-close $l_in;
 
 __END__
