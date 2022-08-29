@@ -487,17 +487,36 @@ do
         ggsave(p, height = 6, width = 10, file = save)
     ' ${file}
 done
+- The mean and median of all mutation frequencies
 
-cd ~/data/yeast/fitness
+```bash
+cd ~/data/yeast/vcf
+
 # freq mean and median
 # snps existent in wild groups
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-uniq -f 2,3,4,5 |
-    tsv-summarize -g 7 --count --mean 8 --median 8 |
-    sed '1itype\tnum\tfreq_mean\tfreq_median' |
+cat all.vcf.tsv |
+    tsv-summarize -g 9 --count --mean 5 --median 5 |
+    sed '1imut_type\tnum\tfreq_mean\tfreq_median' |
     mlr --itsv --omd cat
 
+cat all.vcf.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 9 --count --mean 5 --median 5 |
+    sed '1imut_type\tnum\thigh_freq_mean\thigh_freq_median' |
+    mlr --itsv --omd cat
+```
+
+| mut_type               | num | freq_mean      | freq_median |
+|------------------------|-----|----------------|-------------|
+| Synonymous_mutation    | 504 | 0.248842422897 | 0.0669872   |
+| Nonsynonymous_mutation | 315 | 0.110011291778 | 0.0357143   |
+
+| mut_type               | num | high_freq_mean | high_freq_median |
+|------------------------|-----|----------------|------------------|
+| Synonymous_mutation    | 292 | 0.41346027637  | 0.3074075        |
+| Nonsynonymous_mutation | 139 | 0.221710007194 | 0.109375         |
+
+```bash
 cat all.fit.tsv |
     tsv-filter --str-ne 1:other |
     tsv-summarize -g 1,7 --count --mean 8 --median 8 |
