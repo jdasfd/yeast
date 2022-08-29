@@ -444,34 +444,50 @@ cat all.vcf.tsv |
 | chromosome5  | IES6  | 10    |
 | chromosome12 | TSR2  | 10    |
 
+- Frequencies of each SNP occurred more than 10 subpopulations
 
 ```bash
+mkdir ~/data/yeast/vcf/freq
 cd ~/data/yeast/vcf
 
 # freq among groups
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-select -f 2,3,4,5 |
+cat all.vcf.tsv |
+    tsv-select -f 1,2,3,4 |
     tsv-uniq |
     parallel --colsep '\t' -j 4 -k '
-        cat all.fit.tsv |
-        tsv-filter --str-eq 2:{1} --eq 3:{2} --str-eq 4:{3} --str-eq 5:{4} |
-        tsv-select -f 1,7,8 |
+        cat all.vcf.tsv |
+        tsv-filter --str-eq 1:{1} --eq 2:{2} --str-eq 3:{3} --str-eq 4:{4} |
+        tsv-select -f 11,9,5 |
         sed "1igroup\ttype\tfreq" \
         > freq/{1}_{2}_{3}_{4}.tsv
     '
 
-cd ~/data/yeast/fitness/freq
+cd ~/data/yeast/vcf/freq
+
+ls *.tsv | wc -l
+#248
+
+cat ../all.vcf.tsv |
+    tsv-summarize -g 1,2,3,4 --count | 
+    tsv-filter --ge 5:10 |
+    wc -l
+#20
 
 for name in $(wc -l *.tsv |
               grep -v 'total$' |
               datamash reverse -W |
-              tsv-filter --eq 2:2 |
+              tsv-filter --lt 2:11 | #header should be included
               tsv-select -f 1)
 do
     rm ${name}
 done
 
+wc -l *.tsv |
+    grep -v 'total$' |
+    wc -l
+#20
+
+# plot
 for file in $(ls *.tsv)
 do
     echo "==>${file}"
@@ -481,12 +497,16 @@ do
         args <- commandArgs(T)
         freq <- read_tsv(args[1], show_col_types = FALSE)
         save <- paste0(args[1], ".pdf")
-        p <- ggplot(freq, aes(x = group, y = freq))+
-             geom_col() +
+        p <- ggplot(freq, aes(x = reorder(group, -freq), y = freq)) +
+             geom_bar(stat="identity") +
+             geom_text(aes(label = freq), vjust=1.6, color="white",
+                       position = position_dodge(0.9), size=3.5)+
              theme(axis.text.x = element_text(angle = 315))
         ggsave(p, height = 6, width = 10, file = save)
     ' ${file}
 done
+```
+
 - The mean and median of all mutation frequencies
 
 ```bash
