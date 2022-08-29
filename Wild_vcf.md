@@ -802,6 +802,44 @@ Rscript -e '
 ```
 
 ## Original article
+### Chi-square
+
+The experiment from the original article was almost a simulation of random mutations. All detected mutations were not biased to either nonsynonymous mutation or synonymous mutation. So all unique fixed SNPs after would be random as well if there were no other reasons.
+
+```bash
+raw1=$(cat all.vcf.tsv |
+          tsv-uniq -f 1,2,3,4 |
+          tsv-summarize -g 9 --count |
+          tsv-sort -nk 2,2 |
+          datamash transpose |
+          sed 1d)
+
+raw2=$(cat other.vcf.tsv |
+          tsv-summarize -g 6 --count |
+          tsv-filter --str-ne 1:Nonsense_mutation |
+          datamash transpose |
+          sed 1d)
+
+echo -e "$raw1\t$raw2" |
+    parallel --colsep '\t' -j 1 -k '
+        Rscript -e "
+            x <- matrix(c({1},{3},{2},{4}), ncol = 2)
+            old.warn <- options()$warn
+            options(warn = -1)
+            x
+            chisq.test(x)
+        "
+'
+#     [,1] [,2]
+#[1,]  112  136
+#[2,] 5929 1665
+
+#        Pearson's Chi-squared test with Yates' continuity correction
+
+#data:  x
+#X-squared = 145.2, df = 1, p-value < 2.2e-16
+```
+
 
 ```bash
 cd ~/data/yeast
