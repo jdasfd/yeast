@@ -253,50 +253,9 @@ perl scripts/loc2vcf.pl -b gene/gene.blast.tsv \
     tsv-sort -nk 2,2 \
     > vcf/gene.vcf
 
-        ' \
-        > gene/${gene}/${gene}_region.tsv
-done
-
-# CDS location on the genomic region
-for gene in $(cat gene/stdname.lst)
-do
-    echo "==> ${gene}"
-    perl scripts/loc2vcf.pl \
-        -r gene/${gene}/${gene}_region.tsv \
-        -t gene/${gene}/${gene}.tsv \
-        -a gene/${gene}/${gene}.aln.fa \
-        > gene/${gene}/${gene}.mut.vcf
-done
-```
--->
-
-### Filtering with bcf of different groups using region
-
-```bash
-mkdir ~/data/yeast/vcf/region
-cd ~/data/yeast/vcf
-
-# region containing gene name
-rm region/region_name.tsv
-
-for gene in $(cat ../gene/stdname.lst)
-do
-    cat ../gene/${gene}/${gene}_region.tsv >> region/region_name.tsv
-done
-
-cat region/region_name.tsv |
-    tsv-join -k 1 --filter-file ../gene/sys_stdname.tsv \
-    --append-fields 2 |
-    tsv-select -f 5,1,2,3,4 > tmp \
-    && mv tmp region/region_name.tsv
-
-# .bed file for bcftools
-echo -e "#CHROM\tPOS\tEND" > region/region.bed
-
-for gene in $(cat ../gene/stdname.lst)
-do
-    cat ../gene/${gene}/${gene}_region.tsv |
-        perl -nla -F"\t" -e '
+# bcftools required 1-based bed for snp filtering
+cat gene/gene.blast.tsv |
+     perl -nla -F"\t" -e '
             BEGIN {
                 our %roman = (
                     "XVI"   => 16,
@@ -317,88 +276,22 @@ do
                     "I"     => 1
                 );
             }
-            my $chr = $roman{$F[1]};
-            print "chromosome$chr\t$F[2]\t$F[3]";
+            my $chr = $roman{$F[2]};
+            print "chromosome$chr\t$F[3]\t$F[4]";
         ' \
-    >> region/region.bed 
-done
+        > vcf/region.1based.bed
 
-rm ../vcf/region/all.mut.vcf
-
-# transfer all mutation to 1 vcf
-for gene in $(cat ../gene/stdname.lst)
+# combine all vcf and info into 1 file
+for group in $(cat isolates/group.lst)
 do
-    cat ../gene/${gene}/${gene}.mut.vcf \
-        >> ../vcf/region/all.mut.vcf
-done
-
-cat region/all.mut.vcf | wc -l
-#8341
-# all mutation with fitness scores
-
-cd ~/data/yeast/vcf/group
-
-for group in $(ls *.bcf | sed 's/^1011Matrix\.//' | sed 's/\.bcf$//')
-do
-    echo "==>${group}"
-
-    bcftools view 1011Matrix.${group}.bcf -Ov \
-        -R ../region/region.bed -o ${group}.vcf
-done
-
-for group in $(ls *.vcf | sed 's/\.vcf//')
-do
-    echo "==> ${group}"
-    
-    cat ${group}.vcf |
-        perl -nla -F"\t" -e '
-        /^\#\#/ and next;
-        splice @F, 8;
-        print join qq{\t}, @F;
-    ' \
-    > ${group}.tsv
-
-    cat ${group}.tsv |
-        perl -nla -F"\t" -e '
-            BEGIN {
-                our %roman = (
-                    16 => "XVI",
-                    15 => "XV",
-                    14 => "XIV",
-                    13 => "XIII",
-                    12 => "XII",
-                    11 => "XI",
-                    10 => "X",
-                    9  => "IX",
-                    8  => "VIII",
-                    7  => "VII",
-                    6  => "VI",
-                    5  => "V",
-                    4  => "IV",
-                    3  => "III",
-                    2  => "II",
-                    1  => "I"
-                );
-            }
-            next if /^#/;
-            my $loca = $F[0];
-            $loca =~ /^chromosome(\d+)/;
-            $chr = $roman{$1};
-            my $R        = length $F[3];
-            my $A        = length $F[4];
-            my @info     = split /;/, $F[7];
-            my @AF       = split /=/, $info[1];
-            my $Freq_vcf = $AF[1];
-            my @AC       = split /=/, $info[0];
-            my @AN       = split /=/, $info[2];
-            my $ALT_vcf  = $AC[1];
-            my $REF_vcf  = $AN[1] - $AC[1];
-    
-            if ( $R == 1 && $A == 1 ) {
-                print qq{$chr\t$F[1]\t$F[3]\t$F[4]\t$Freq_vcf\t$REF_vcf\t$ALT_vcf};
-            }
-        ' \
-        > ../region/${group}.tsv
+    bcftools view -Ov -R vcf/region.1based.bed \
+                  -v snps,mnps,ref --threads 10 \
+                  vcf/group/1011Matrix.${group}.bcf |
+    bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' |
+    tsv-join -f vcf/gene.vcf -k 1,2,3,4 -a 5,6,7 -z |
+    tsv-filter --ne 5:0 |
+    awk -v col="${group}" '{print ($0 "\t" col)}' \
+    >> vcf/all.vcf.tsv
 done
 ```
 
