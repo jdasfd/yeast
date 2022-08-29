@@ -759,7 +759,6 @@ Rscript -e '
 ' dist.tsv
 ```
 
-## Original article
 ### Chi-square
 
 The experiment from the original article was almost a simulation of random mutations. All detected mutations were not biased to either nonsynonymous mutation or synonymous mutation. So all unique fixed SNPs after would be random as well if there were no other reasons.
@@ -798,6 +797,7 @@ echo -e "$raw1\t$raw2" |
 #X-squared = 145.2, df = 1, p-value < 2.2e-16
 ```
 
+## Count SNPs existed in other closely related species from original article
 
 ```bash
 cd ~/data/yeast
