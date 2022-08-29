@@ -16,7 +16,7 @@ Scripts could be partly found in the github repo [pars](https://github.com/wang-
 
 ### Split strains from 1002 genomes project according to ecological groups
 
-- Acquire info and split to subgroups
+- Acquire info and split to subpopulations
 
 ```bash
 mkdir ~/data/yeast/isolates
@@ -59,7 +59,7 @@ wc -l *.lst
 # the result is 1011 after subtraction, split correctly
 ```
 
-- Split the `1011Matrix.gvcf.gz` into small files according to subgroups
+- Split the `1011Matrix.gvcf.gz` into small files according to subpopulations
 
 ```bash
 cd ~/data/yeast
@@ -228,7 +228,7 @@ cat gene.blast.tsv | wc -l
 # too short (showed in previous step)
 ```
 
-### Get vcf of genes and subpopulations
+### Get vcf of genes and of subpopulations
 
 There are few things should be considered:
 
@@ -331,7 +331,6 @@ cat all.vcf.tsv |
 
 cat all.vcf.tsv |
     tsv-filter --ge 5:0.05 |
-    tsv-sort -k 1,1 -k 2,2 -k 3,3 -k 4,4 |
     tsv-select -f 1,2,3,4 |
     tsv-uniq |
     wc -l
@@ -399,6 +398,8 @@ Rscript -e '
 | Lab_strain   | 9         | 9   |
 | Probiotic    | 6         | 6   |
 
+- The numbers of subpopulations of an SNP
+
 ```bash
 cd ~/data/yeast/vcf
 
@@ -410,7 +411,7 @@ cat all.vcf.tsv |
     wc -l
 #248
 
-# all snps repeated more than 10 times
+# all snps occurred at least 10 groups
 cat all.vcf.tsv |
     tsv-summarize -g 1,2,3,4,10 --count |
     tsv-sort -r -nk 6,6 |
@@ -420,28 +421,29 @@ cat all.vcf.tsv |
     mlr --itsv --omd cat
 ```
 
-| chr | gene | group |
-| --- | --- | --- |
-| chromosome12 | EST1 | 23 |
-| chromosome7 | GET1 | 22 |
-| chromosome7 | GET1 | 22 |
-| chromosome12 | TSR2 | 22 |
-| chromosome6 | RPL29 | 21 |
-| chromosome5 | IES6 | 21 |
-| chromosome14 | EOS1 | 21 |
-| chromosome14 | EOS1 | 21 |
-| chromosome3 | BUD23 | 20 |
-| chromosome5 | IES6 | 19 |
-| chromosome12 | CCW12 | 19 |
-| chromosome12 | EST1 | 18 |
-| chromosome3 | BUD23 | 16 |
-| chromosome7 | GET1 | 13 |
-| chromosome6 | RPL29 | 12 |
-| chromosome5 | IES6 | 11 |
-| chromosome13 | ASC1 | 11 |
-| chromosome12 | EST1 | 11 |
-| chromosome5 | IES6 | 10 |
-| chromosome12 | TSR2 | 10 |
+| chr          | gene  | group |
+|--------------|-------|-------|
+| chromosome12 | EST1  | 23    |
+| chromosome7  | GET1  | 22    |
+| chromosome7  | GET1  | 22    |
+| chromosome12 | TSR2  | 22    |
+| chromosome6  | RPL29 | 21    |
+| chromosome5  | IES6  | 21    |
+| chromosome14 | EOS1  | 21    |
+| chromosome14 | EOS1  | 21    |
+| chromosome3  | BUD23 | 20    |
+| chromosome5  | IES6  | 19    |
+| chromosome12 | CCW12 | 19    |
+| chromosome12 | EST1  | 18    |
+| chromosome3  | BUD23 | 16    |
+| chromosome7  | GET1  | 13    |
+| chromosome6  | RPL29 | 12    |
+| chromosome5  | IES6  | 11    |
+| chromosome13 | ASC1  | 11    |
+| chromosome12 | EST1  | 11    |
+| chromosome5  | IES6  | 10    |
+| chromosome12 | TSR2  | 10    |
+
 
 ```bash
 cd ~/data/yeast/vcf
