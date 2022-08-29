@@ -297,48 +297,96 @@ done
 
 ## Statistical analysis
 
-### Combine vcf with fitness
-
-- Add fitness data to vcf
+### Basic info
 
 ```bash
-mkdir ~/data/yeast/vcf/fit
-mkdir ~/data/yeast/fitness
-cd ~/data/yeast
+cd ~/data/yeast/vcf
 
-for group in $(cat isolates/group.lst)
-do
-    echo "==> ${group}"
+cat all.vcf.tsv | wc -l
+#819
+# totally 819 snps
 
-    tsv-join vcf/region/all.mut.vcf -k 1,2,3,4 \
-        --filter-file <(cat vcf/region/${group}.tsv | tsv-filter --ne 5:0) \
-        --append-fields 5,6,7 \
-        > vcf/fit/${group}.fit.tsv
-done
+cat all.vcf.tsv | tsv-filter --ge 5:0.05 | wc -l
+#431
+# 431 snps population freq >= 0.05
 
-wc -l vcf/fit/*.fit.tsv
-#  179 total
-# 8341 muts, only 513 muts were existed among all wild groups
+cat all.vcf.tsv |
+    tsv-sort -k 1,1 -k 2,2 -k 3,3 -k 4,4 |
+    tsv-select -f 1,2,3,4 |
+    tsv-uniq |
+    wc -l
+#248
+# totally 248 snps found among wild groups
 
-if [[ -f fitness/group.fit.tsv ]]; then
-    rm fitness/group.fit.tsv
-    echo 'Clear'
-else
-    echo 'Empty'
-fi
+cat all.vcf.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-sort -k 1,1 -k 2,2 -k 3,3 -k 4,4 |
+    tsv-select -f 1,2,3,4 |
+    tsv-uniq |
+    wc -l
+#112
+# totally 112 high freq (>= 0.05) snps found among groups
 
-# mv all fitness into one tsv file
-for group in $(cat isolates/group.lst)
-do
-    echo "==> ${group}"
-    
-    cat vcf/fit/${group}.fit.tsv |
-        awk -v col="${group}" '{print (col "\t" $0)}' \
-        >> fitness/group.fit.tsv
-done
+cat all.vcf.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 11 --count |
+    tsv-join -f <(cat all.vcf.tsv | tsv-summarize -g 11 --count) -k 1 -a 2 |
+    tsv-sort -nk 3,3 -r |
+    sed '1igroup\thigh_freq\tall' |
+    mlr --itsv --omd cat
 
-cat fitness/group.fit.tsv | wc -l
-#179
+cat all.vcf.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 11 --count |
+    awk '{print ($0 "\thigh_freq")}' |
+    sed '1igroup\tnum\tcatgry' > tmp &&
+cat all.vcf.tsv |
+    tsv-summarize -g 11 --count |
+    awk '{print ($0 "\tall")}' >> tmp &&
+mv tmp group_num.tsv
+
+# plot
+# need to change x axis
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    data <- read_tsv(args[1])
+    p <- ggplot(data, aes(x = reorder(group, -num), y = num, fill = catgry)) +
+         geom_bar(stat="identity", position=position_dodge()) +
+         geom_text(aes(label = num), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+
+         scale_fill_brewer(palette="Paired") +
+         theme(axis.text.x = element_text(angle = 315))
+    ggsave(p, height = 6, width = 15, file = "group_num.pdf")
+' group_num.tsv
+```
+
+| group        | high_freq | all |
+|--------------|-----------|-----|
+| Nature       | 23        | 83  |
+| Wine         | 10        | 63  |
+| Beer         | 24        | 59  |
+| Tree         | 22        | 57  |
+| Fruit        | 21        | 54  |
+| Clinical     | 20        | 54  |
+| Unknown      | 17        | 39  |
+| Distillery   | 18        | 38  |
+| Palm_wine    | 22        | 37  |
+| Insect       | 33        | 37  |
+| Fermentation | 20        | 34  |
+| Water        | 27        | 33  |
+| Soil         | 27        | 33  |
+| Industrial   | 23        | 32  |
+| Human        | 16        | 29  |
+| Bakery       | 22        | 29  |
+| Bioethanol   | 12        | 20  |
+| Flower       | 18        | 19  |
+| Dairy        | 13        | 19  |
+| Cider        | 17        | 19  |
+| Sake         | 11        | 16  |
+| Lab_strain   | 9         | 9   |
+| Probiotic    | 6         | 6   |
 
 cat fitness/group.fit.tsv |
     tsv-uniq -f 2,3,4,5 |
