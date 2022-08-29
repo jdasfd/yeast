@@ -767,6 +767,8 @@ Rscript -e '
 - The mean and median of all mutation fitness
 
 ```bash
+cd ~/data/yeast/vcf
+
 # fitness mean and median
 # uniq snps from different groups
 # snps existent in wild groups
@@ -781,6 +783,60 @@ cat other.vcf.tsv |
     tsv-summarize -g 6 --count --mean 5 --median 5 |
     sed '1itype\tnum\tfit_mean\tfit_median' |
     mlr --itsv --omd cat
+
+# distribution of fitness
+# all unique detected snps
+cat all.vcf.tsv |
+    tsv-uniq -f 1,2,3,4 |
+    tsv-select -f 8,9 |
+    sed '1ifit\ttype' \
+    > ../results/dist.fit.tsv
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    fit <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(fit, aes(x = fit, fill = type)) +
+         geom_histogram() +
+         facet_grid(~type)
+    ggsave(p, height = 6, width = 12, file = "../results/dist.fit.pdf")
+' ../results/dist.fit.tsv
+
+# plot
+cat all.vcf.tsv |
+    tsv-uniq -f 1,2,3,4 |
+    tsv-select -f 8,9 |
+    awk '{print ("yes\t" $0)}' |
+    perl -nla -e '
+        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Non.+$/N_mut/;
+        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Sy.+$/S_mut/;
+        ' |
+    sed '1iexist\tfit\ttype' \
+    > ../results/all.fit.tsv
+ 
+cat other.vcf.tsv |
+    tsv-filter --str-ne 6:Nonsense_mutation |
+    tsv-select -f 5,6 |
+    awk '{print ("no\t" $0)}' |
+    perl -nla -e '
+        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Non.+$/N_mut/;
+        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Sy.+$/S_mut/;
+        ' \
+    >> ../results/all.fit.tsv
+
+Rscript -e '
+library(ggplot2)
+library(readr)
+args <- commandArgs(T)
+fit <- read_tsv(args[1], show_col_types = FALSE)
+p <- ggplot(fit, aes(x = type, y = fit, fill = type)) +
+     geom_boxplot() +
+     facet_grid(~exist) +
+     ylim(0.96, 1.02) +
+     theme(axis.text.x = element_text(angle = 315))
+ggsave(p, height = 6, width = 15, file = "../results/all.fit.pdf")
+' ../results/all.fit.tsv
 ```
 
 | type                   | num | fit_mean       | fit_median     |
@@ -796,79 +852,61 @@ cat other.vcf.tsv |
 | Nonsense_mutation      | 162  | 0.935173157813 | 0.9403812345 |
 
 ```bash
-cd ~/data/yeast/fitness
+cd ~/data/yeast/vcf
 
-cat all.fit.tsv |
-    tsv-filter --str-ne 7:Nonsense_mutation |
-    tsv-select -f 1,6,7 |
+cat other.vcf.tsv |
+    tsv-filter --str-ne 6:Nonsense_mutation |
+    tsv-select -f 5,6 |
+    awk '{print ("other\t" $0)}' \
+    > ../results/group.fit.tsv
+
+cat all.vcf.tsv |
+    tsv-select -f 11,8,9 \
+    >> ../results/group.fit.tsv
+
+cat ../results/group.fit.tsv |
     perl -nla -e '
         print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Non.+$/N_mut/;
         print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Sy.+$/S_mut/;
-        ' |
+    ' |
     sed '1igroup\tfit\ttype' \
-    > fitness.tsv
+    > tmp && \
+    mv tmp ../results/group.fit.tsv
 
 Rscript -e '
 library(ggplot2)
 library(readr)
 args <- commandArgs(T)
-fit <- read_tsv(args[1])
-p <- ggplot(fit, aes(x = type, y = fit)) +
+fit <- read_tsv(args[1], show_col_types = FALSE)
+p <- ggplot(fit, aes(x = type, y = fit, fill = type)) +
      geom_boxplot() +
      facet_grid(~group) +
-     ylim(0.96, 1.01) +
+     ylim(0.96, 1.02) +
      theme(axis.text.x = element_text(angle = 315))
-ggsave(p, height = 6, width = 15, file = "fitness.pdf")
-' fitness.tsv
+ggsave(p, height = 6, width = 15, file = "../results/group.fit.pdf")
+' ../results/group.fit.tsv
 
-cat all.fit.tsv |
-    tsv-filter --str-ge 8:0.05 --str-ne 7:Nonsense_mutation |
-    tsv-select -f 1,6,7 \
-    > fitness_5.tsv
-
-cat fitness_5.tsv \
-<(cat all.fit.tsv |
-      tsv-filter --str-ne 7:Nonsense_mutation |
-      tsv-filter --str-eq 1:other |
-      tsv-select -f 1,6,7) |
+cat all.vcf.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-select -f 11,8,9 |
     perl -nla -e '
         print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Non.+$/N_mut/;
         print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Sy.+$/S_mut/;
         ' |
     sed '1igroup\tfit\ttype' \
-      > tmp && mv tmp fitness_5.tsv 
+    > ../results/group.highfreq.fit.tsv
 
 Rscript -e '
 library(ggplot2)
 library(readr)
 args <- commandArgs(T)
-fit <- read_tsv(args[1])
-p <- ggplot(fit, aes(x = type, y = fit)) +
+fit <- read_tsv(args[1], show_col_types = FALSE)
+p <- ggplot(fit, aes(x = type, y = fit, fill = type)) +
      geom_boxplot() +
      facet_grid(~group) +
-     ylim(0.96, 1.01) +
      theme(axis.text.x = element_text(angle = 315))
-ggsave(p, height = 6, width = 15, file = "fitness_5.pdf")
-' fitness_5.tsv
-
-# distribution of all muts fitness
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-uniq -f 2,3,4,5 |
-    tsv-select -f 6,7 |
-    sed '1ifit\ttype' \
-    > dist.tsv
-
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    args <- commandArgs(T)
-    fit <- read_tsv(args[1])
-    p <- ggplot(fit, aes(x = fit)) +
-         geom_histogram() +
-         facet_grid(~type)
-    ggsave(p, height = 6, width = 12, file = "dist.pdf")
-' dist.tsv
+ggsave(p, height = 6, width = 15, file = "../results/group.highfreq.fit.pdf")
+' ../results/group.highfreq.fit.tsv
 ```
 
 ### Chi-square
@@ -908,6 +946,8 @@ echo -e "$raw1\t$raw2" |
 #data:  x
 #X-squared = 145.2, df = 1, p-value < 2.2e-16
 ```
+
+### Linear regression
 
 ## Count SNPs existed in other closely related species from original article
 
