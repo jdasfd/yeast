@@ -293,11 +293,22 @@ do
     awk -v col="${group}" '{print ($0 "\t" col)}' \
     >> vcf/all.vcf.tsv
 done
+
+# all mutations undetected
+perl scripts/loc2vcf.pl -b gene/gene.blast.tsv \
+    -t gene/fit.filter.tsv |
+    tsv-join -f vcf/all.vcf.tsv -k 1,2,3,4 -e \
+    > vcf/other.vcf.tsv
+
+cat vcf/other.vcf.tsv | wc -l
+#7756 (8004 - 248)
 ```
 
 ## Statistical analysis
 
 ### Basic info
+
+- The numbers of SNPs occurred among subpopulations
 
 ```bash
 cd ~/data/yeast/vcf
@@ -310,12 +321,12 @@ cat all.vcf.tsv | tsv-filter --ge 5:0.05 | wc -l
 #431
 # 431 snps population freq >= 0.05
 
+# uniq all snps
 cat all.vcf.tsv |
-    tsv-sort -k 1,1 -k 2,2 -k 3,3 -k 4,4 |
     tsv-select -f 1,2,3,4 |
     tsv-uniq |
     wc -l
-#248
+#248 (8004-7756, right)
 # totally 248 snps found among wild groups
 
 cat all.vcf.tsv |
