@@ -232,57 +232,27 @@ cat gene.blast.tsv | wc -l
 
 There are few things should be considered:
 
+1. The file format of 1002 genome project VCF is [VCF v4.1](http://samtools.github.io/hts-specs/VCFv4.1.pdf). In this format, all  info of mutations was recorded on the forward strand of reference yeast genome R64.
 
-<!--
+2. In the article, each position of mutations was recorded according to the coding region. So after I researched on the [genome browser](https://browse.yeastgenome.org/), it should be noticed that the blast result should be relocated on the forward strand.
+
+In other words, for the forward strand (+), the genome location is alright, but it should be upside down for the reverse strand (-).
+
+- Forward strand: left 5' -> right 3'.
+- Reverse strand: right 5' -> left 3'.
+
 ```bash
-# extract CDS genomic location
-cat ../mrna-structure/sgd/saccharomyces_cerevisiae.gff |
-    perl -nla -e '
-    next if /^#/;
-    next if /^[ATCG]/;
-    if ($F[2] eq CDS){
-        $F[8] =~ /Name=(.+)_CDS/;
-        $name = $1;
-        print "$F[0]\t$F[3]\t$F[4]\t$name";
-        }
-    ' > gene/CDS.gff
+cd ~/data/yeast
 
-for gene in $(cat gene/stdname.lst)
-do
-    echo "==> ${gene}"
+cat info/fit.tsv |
+    tsv-filter --str-ne 1:LSM1 --str-ne 1:VMA7 \
+    > gene/fit.filter.tsv
 
-    sys=$(cat gene/std_sysname.tsv |
-              tsv-filter --str-eq 1:${gene} |
-              tsv-select -f 2)
+perl scripts/loc2vcf.pl -b gene/gene.blast.tsv \
+    -t gene/fit.filter.tsv |
+    tsv-sort -nk 2,2 \
+    > vcf/gene.vcf
 
-    cat gene/CDS.gff |
-        tsv-filter --iregex 4:${sys} |
-        perl -nla -e '
-        $F[0] =~ /^chr(.+)/;
-        $chr = $1;
-        $F[3] =~ /Name=(.+)_CDS/;
-        $name = $1;
-        print "$name\t$chr\t$F[1]\t$F[2]";
-        ' \
-        > gene/${gene}/${gene}_region.tsv
-done
-
-for gene in $(cat gene/stdname.lst)
-do
-    echo "==> ${gene}"
-
-    sys=$(cat gene/std_sysname.tsv |
-              tsv-filter --str-eq 1:${gene} |
-              tsv-select -f 2)
-
-    cat gene/CDS.gff |
-        tsv-filter --iregex 4:${sys} |
-        perl -nla -e '
-        $F[0] =~ /^chr(.+)/;
-        $chr = $1;
-        $F[3] =~ /Name=(.+)_CDS/;
-        $name = $1;
-        print "$name\t$chr\t$F[1]\t$F[2]";
         ' \
         > gene/${gene}/${gene}_region.tsv
 done
