@@ -86,9 +86,11 @@ parallel -j 4 " \
 " ::: $(ls *.bcf)
 ```
 
-### Extract 21 genes name
+### Extract 21 gene names and sequences
 
-According to SGD, there is system name and standard name for one same gene. The standard name was accepted in the article. When it comes to different processes, it should be aware of the name of genes.
+According to SGD, there is system name and standard name for one same gene. The standard name was adopted in the article. When it comes to different processes, two names were respectively useful in different aspects.
+
+After that, the sequences were extracted from the mutation info.
 
 ```bash
 cd ~/data/yeast
@@ -134,15 +136,9 @@ wc -l gene/std_sysname.tsv
 cat gene/std_sysname.tsv |
     tsv-select -f 2 \
     > gene/sysname.lst
-```
-
-### Locating mutations on the genome scale.
-
-```bash
-cd ~/data/yeast
 
 # average fitness of muts were not all available
-# remove those #DIV/0!
+# remove those #DIV/0! in excel
 perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
     --sheet "Fig. 2abc" |
     sed '1d' |
@@ -152,9 +148,14 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
     tsv-filter --not-iregex 5:# \
     > info/fit.tsv
 
+# count all mutations with available fitness data
+cat info/fit.tsv | wc -l
+#8341
+
 # get fa according to the article info
 # all detected muts were included
 cd ~/data/yeast/gene
+
 rm gene.mut.fa
 
 for gene in $(cat stdname.lst)
@@ -172,6 +173,31 @@ do
         perl -nae 'print $F[2]; END{print qq{\n};}' \
         >> gene.mut.fa
 done
+
+# All genes and their length
+faops size gene.mut.fa
+#ADA2    150
+#ASC1    142
+#BFR1    150
+#BUD23   150
+#CCW12   150
+#EOS1    150
+#EST1    150
+#GET1    150
+#GIM5    150
+#IES6    150
+#LSM1    112
+#PAF1    150
+#PRS3    149
+#RAD6    149
+#RPL29   150
+#RPL39   146
+#RPS7A   141
+#SNF6    150
+#TSR2    150
+#VMA21   147
+#VMA7    119
+```
 
 # formatdb
 makeblastdb -dbtype nucl -in S288c.fa -parse_seqids
