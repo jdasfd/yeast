@@ -205,6 +205,8 @@ do
         muscle -out gene/${gene}/${gene}.aln.fa -quiet
 done
 
+<!--
+```bash
 # extract CDS genomic location
 cat ../mrna-structure/sgd/saccharomyces_cerevisiae.gff |
     perl -nla -e '
@@ -268,6 +270,7 @@ do
         > gene/${gene}/${gene}.mut.vcf
 done
 ```
+-->
 
 ### Filtering with bcf of different groups using region
 
