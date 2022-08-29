@@ -361,7 +361,7 @@ Rscript -e '
     library(ggplot2)
     library(readr)
     args <- commandArgs(T)
-    data <- read_tsv(args[1])
+    data <- read_tsv(args[1], show_col_types = FALSE)
     p <- ggplot(data, aes(x = reorder(group, -num), y = num, fill = catgry)) +
          geom_bar(stat="identity", position=position_dodge()) +
          geom_text(aes(label = num), vjust=1.6, color="white",
@@ -507,6 +507,8 @@ do
 done
 ```
 
+### Frequencies and fitness of SNP
+
 - The mean and median of all mutation frequencies
 
 ```bash
@@ -537,9 +539,9 @@ cat all.vcf.tsv |
 | Nonsynonymous_mutation | 139 | 0.221710007194 | 0.109375         |
 
 ```bash
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-summarize -g 1,7 --count --mean 8 --median 8 |
+# output into a tsv for plot
+cat all.vcf.tsv |
+    tsv-summarize -g 11,9 --count --mean 5 --median 5 |
     perl -nla -e '
         print join("\t",@F) if $F[1] =~ s/^Non.+$/N_mut/;
         print join("\t",@F) if $F[1] =~ s/^Sy.+$/S_mut/;
@@ -554,11 +556,11 @@ Rscript -e '
     library(readr)
     args <- commandArgs(T)
     freq <- read_tsv(args[1], show_col_types = FALSE)
-    p1 <- ggplot(freq, aes(x = type, y = freq_mean))+
+    p1 <- ggplot(freq, aes(x = type, y = freq_mean, fill = type))+
          geom_col() +
          theme(axis.text.x = element_text(angle = 315)) +
          facet_grid(~group)
-    p2 <- ggplot(freq, aes(x = type, y = freq_median))+
+    p2 <- ggplot(freq, aes(x = type, y = freq_median, fill = type))+
          geom_col() +
          theme(axis.text.x = element_text(angle = 315)) +
          facet_grid(~group)
@@ -566,122 +568,164 @@ Rscript -e '
     ggsave(p2, height = 6, width = 15, file = "group_freq_median.pdf")
 ' group_freq.tsv
 
+cat all.vcf.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 11,9 --count --mean 5 --median 5 |
+    perl -nla -e '
+        print join("\t",@F) if $F[1] =~ s/^Non.+$/N_mut/;
+        print join("\t",@F) if $F[1] =~ s/^Sy.+$/S_mut/;
+    ' |
+    sed '1igroup\ttype\tnum\tfreq_mean\tfreq_median' \
+    > group_high_freq.tsv
+
+cat group_high_freq.tsv | mlr --itsv --omd cat
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    freq <- read_tsv(args[1], show_col_types = FALSE)
+    p1 <- ggplot(freq, aes(x = type, y = freq_mean, fill = type))+
+         geom_col() +
+         theme(axis.text.x = element_text(angle = 315)) +
+         facet_grid(~group)
+    p2 <- ggplot(freq, aes(x = type, y = freq_median, fill = type))+
+         geom_col() +
+         theme(axis.text.x = element_text(angle = 315)) +
+         facet_grid(~group)
+    ggsave(p1, height = 6, width = 15, file = "group_high_freq_mean.pdf")
+    ggsave(p2, height = 6, width = 15, file = "group_high_freq_median.pdf")
+' group_high_freq.tsv
+```
+
+| group        | type  | num | freq_mean       | freq_median |
+|--------------|-------|-----|-----------------|-------------|
+| Bakery       | S_mut | 15  | 0.31441444      | 0.27027     |
+| Bakery       | N_mut | 14  | 0.102757864286  | 0.0675676   |
+| Beer         | S_mut | 33  | 0.175525345455  | 0.0423729   |
+| Beer         | N_mut | 26  | 0.0634637838462 | 0.0338983   |
+| Bioethanol   | S_mut | 12  | 0.430555341667  | 0.304131    |
+| Bioethanol   | N_mut | 8   | 0.136574075     | 0.03703705  |
+| Cider        | N_mut | 9   | 0.216298922222  | 0.205882    |
+| Cider        | S_mut | 10  | 0.38823524      | 0.2058825   |
+| Clinical     | N_mut | 23  | 0.0739591773913 | 0.0233645   |
+| Clinical     | S_mut | 31  | 0.146980374839  | 0.0280374   |
+| Dairy        | N_mut | 6   | 0.370370266667  | 0.1944443   |
+| Dairy        | S_mut | 13  | 0.410826238462  | 0.111111    |
+| Distillery   | N_mut | 13  | 0.119363384615  | 0.0344828   |
+| Distillery   | S_mut | 25  | 0.2461576       | 0.0517241   |
+| Fermentation | S_mut | 22  | 0.332702027273  | 0.277778    |
+| Fermentation | N_mut | 12  | 0.15625         | 0.0277778   |
+| Flower       | S_mut | 13  | 0.368131892308  | 0.214286    |
+| Flower       | N_mut | 6   | 0.202380916667  | 0.0892858   |
+| Fruit        | S_mut | 36  | 0.150369286111  | 0.0425532   |
+| Fruit        | N_mut | 18  | 0.0721040277778 | 0.0319149   |
+| Human        | N_mut | 14  | 0.221198171429  | 0.02419355  |
+| Human        | S_mut | 15  | 0.43870974      | 0.193548    |
+| Industrial   | N_mut | 14  | 0.0955782714286 | 0.06904765  |
+| Industrial   | S_mut | 18  | 0.274338588889  | 0.2         |
+| Insect       | N_mut | 9   | 0.116666666667  | 0.05        |
+| Insect       | S_mut | 28  | 0.227678571429  | 0.1         |
+| Lab_strain   | S_mut | 8   | 0.625           | 0.5         |
+| Lab_strain   | N_mut | 1   | 0.5             | 0.5         |
+| Nature       | S_mut | 53  | 0.0990637173585 | 0.0192308   |
+| Nature       | N_mut | 30  | 0.0497360686667 | 0.0192308   |
+| Palm_wine    | S_mut | 26  | 0.290384630769  | 0.0666667   |
+| Palm_wine    | N_mut | 11  | 0.148484872727  | 0.0333333   |
+| Probiotic    | N_mut | 3   | 0.5             | 0.5         |
+| Probiotic    | S_mut | 3   | 1               | 1           |
+| Sake         | S_mut | 13  | 0.688216115385  | 0.989362    |
+| Sake         | N_mut | 3   | 0.386524866667  | 0.148936    |
+| Soil         | S_mut | 20  | 0.255921065     | 0.13815815  |
+| Soil         | N_mut | 13  | 0.106275330769  | 0.0789474   |
+| Tree         | S_mut | 41  | 0.153325256098  | 0.03125     |
+| Tree         | N_mut | 16  | 0.08081440625   | 0.03125     |
+| Unknown      | N_mut | 19  | 0.0808270684211 | 0.0357143   |
+| Unknown      | S_mut | 20  | 0.251785705     | 0.0714286   |
+| Water        | N_mut | 15  | 0.09298244      | 0.0526316   |
+| Water        | S_mut | 18  | 0.269736877778  | 0.0789473   |
+| Wine         | S_mut | 31  | 0.108155583871  | 0.00806452  |
+| Wine         | N_mut | 32  | 0.0402662403125 | 0.007056455 |
+
+| group        | type  | num | freq_mean      | freq_median |
+|--------------|-------|-----|----------------|-------------|
+| Bakery       | S_mut | 11  | 0.420147463636 | 0.364865    |
+| Bakery       | N_mut | 11  | 0.127097236364 | 0.0810811   |
+| Beer         | N_mut | 9   | 0.1447334      | 0.059322    |
+| Beer         | S_mut | 15  | 0.357907153333 | 0.245763    |
+| Bioethanol   | N_mut | 4   | 0.25462965     | 0.2592595   |
+| Bioethanol   | S_mut | 8   | 0.6319441375   | 0.7129625   |
+| Cider        | N_mut | 9   | 0.216298922222 | 0.205882    |
+| Cider        | S_mut | 8   | 0.4779411      | 0.3088235   |
+| Clinical     | N_mut | 7   | 0.202879742857 | 0.122642    |
+| Clinical     | S_mut | 13  | 0.333597338462 | 0.264423    |
+| Dairy        | N_mut | 4   | 0.5370369      | 0.583333    |
+| Dairy        | S_mut | 9   | 0.576954788889 | 0.740741    |
+| Distillery   | N_mut | 5   | 0.2586206      | 0.241379    |
+| Distillery   | S_mut | 13  | 0.446854769231 | 0.517241    |
+| Fermentation | S_mut | 15  | 0.474074073333 | 0.472222    |
+| Fermentation | N_mut | 5   | 0.34166664     | 0.25        |
+| Flower       | S_mut | 13  | 0.368131892308 | 0.214286    |
+| Flower       | N_mut | 5   | 0.23571424     | 0.107143    |
+| Fruit        | N_mut | 5   | 0.19148938     | 0.106383    |
+| Fruit        | S_mut | 16  | 0.30563418125  | 0.209528    |
+| Human        | N_mut | 6   | 0.49193555     | 0.564516    |
+| Human        | S_mut | 10  | 0.6467743      | 0.806452    |
+| Industrial   | N_mut | 9   | 0.130158811111 | 0.1         |
+| Industrial   | S_mut | 14  | 0.344387714286 | 0.2416665   |
+| Insect       | N_mut | 7   | 0.142857142857 | 0.05        |
+| Insect       | S_mut | 26  | 0.243269230769 | 0.125       |
+| Lab_strain   | S_mut | 8   | 0.625          | 0.5         |
+| Lab_strain   | N_mut | 1   | 0.5            | 0.5         |
+| Nature       | N_mut | 7   | 0.145846857143 | 0.0882353   |
+| Nature       | S_mut | 16  | 0.28485573125  | 0.216346    |
+| Palm_wine    | N_mut | 5   | 0.29000008     | 0.166667    |
+| Palm_wine    | S_mut | 17  | 0.426470629412 | 0.183333    |
+| Probiotic    | N_mut | 3   | 0.5            | 0.5         |
+| Probiotic    | S_mut | 3   | 1              | 1           |
+| Sake         | S_mut | 9   | 0.988179777778 | 1           |
+| Sake         | N_mut | 2   | 0.569149       | 0.569149    |
+| Soil         | S_mut | 19  | 0.268005552632 | 0.184211    |
+| Soil         | N_mut | 8   | 0.157894775    | 0.0789474   |
+| Tree         | S_mut | 18  | 0.318424888889 | 0.230469    |
+| Tree         | N_mut | 4   | 0.250992       | 0.09375     |
+| Unknown      | N_mut | 6   | 0.1904762      | 0.142857    |
+| Unknown      | S_mut | 11  | 0.435064927273 | 0.428571    |
+| Water        | S_mut | 16  | 0.3001645125   | 0.131579    |
+| Water        | N_mut | 11  | 0.117224854545 | 0.0789474   |
+| Wine         | N_mut | 6   | 0.169054333333 | 0.09173405  |
+| Wine         | S_mut | 4   | 0.75201625     | 0.947581    |
+
+- The mean and median of all mutation fitness
+
+```bash
 # fitness mean and median
 # uniq snps from different groups
 # snps existent in wild groups
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-uniq -f 2,3,4,5 |
-    tsv-summarize -g 7 --count --mean 6 --median 6 |
+cat all.vcf.tsv |
+    tsv-uniq -f 1,2,3,4 |
+    tsv-summarize -g 9 --count --mean 8 --median 8 |
     sed '1itype\tnum\tfit_mean\tfit_median' |
     mlr --itsv --omd cat
 
 # snps nonexistent in wild groups
-cat all.fit.tsv |
-    tsv-filter --str-eq 1:other |
-    tsv-summarize -g 7 --count --mean 6 --median 6 |
+cat other.vcf.tsv |
+    tsv-summarize -g 6 --count --mean 5 --median 5 |
     sed '1itype\tnum\tfit_mean\tfit_median' |
     mlr --itsv --omd cat
 ```
 
-repeated snps:
-
-| TSR2  | XII  | 1006428 | T   | C   | 22  |
-|-------|------|---------|-----|-----|-----|
-| IES6  | V    | 69766   | A   | G   | 22  |
-| BFR1  | XV   | 718752  | T   | C   | 21  |
-| EST1  | XII  | 607457  | T   | C   | 21  |
-| RPL39 | X    | 76457   | A   | T   | 5   |
-| CCW12 | XII  | 369768  | T   | C   | 4   |
-| BUD23 | III  | 210821  | G   | A   | 4   |
-| RPS7A | XV   | 506434  | A   | G   | 3   |
-| RPL39 | X    | 76435   | T   | C   | 3   |
-| RPL39 | X    | 76417   | C   | T   | 3   |
-| PRS3  | VIII | 80765   | C   | T   | 3   |
-| SNF6  | VIII | 54942   | T   | A   | 3   |
-| GET1  | VII  | 457187  | G   | A   | 3   |
-| BUD23 | III  | 210807  | G   | A   | 3   |
-| BFR1  | XV   | 718726  | T   | A   | 2   |
-| TSR2  | XII  | 1006524 | C   | G   | 2   |
-| TSR2  | XII  | 1006437 | T   | A   | 2   |
-| LSM1  | X    | 187267  | G   | A   | 2   |
-| VMA21 | VII  | 698670  | C   | T   | 2   |
-| ADA2  | IV   | 1356180 | C   | T   | 2   |
-| ADA2  | IV   | 1356133 | T   | C   | 2   |
-
-existent snps fit:
-
 | type                   | num | fit_mean       | fit_median     |
 |------------------------|-----|----------------|----------------|
-| Nonsynonymous_mutation | 33  | 0.987204450667 | 0.98809565525  |
-| Synonymous_mutation    | 30  | 0.990295101505 | 0.99229843675  |
-| Nonsense_mutation      | 3   | 0.92759421177  | 0.904949830064 |
+| Synonymous_mutation    | 136 | 0.988034235352 | 0.98874490225  |
+| Nonsynonymous_mutation | 112 | 0.988007605256 | 0.988724384625 |
 
-nonexistent snps fit:
 
-| type                   | num  | fit_mean       | fit_median     |
-|------------------------|------|----------------|----------------|
-| Nonsynonymous_mutation | 6273 | 0.984944235527 | 0.98805154375  |
-| Synonymous_mutation    | 1836 | 0.987772083901 | 0.988734612306 |
-| Nonsense_mutation      | 166  | 0.934085408798 | 0.939873592125 |
-
-existent snps freq:
-
-| type                   | num | freq_mean       | freq_median |
-|------------------------|-----|-----------------|-------------|
-| Nonsynonymous_mutation | 33  | 0.0385074172727 | 0.0212766   |
-| Synonymous_mutation    | 30  | 0.0821522103333 | 0.0344828   |
-| Nonsense_mutation      | 3   | 0.0585839666667 | 0.0789474   |
-
-| group        | type  | num | freq_mean       | freq_median |
-|--------------|-------|-----|-----------------|-------------|
-| Bakery       | N_mut | 3   | 0.1846847       | 0.216216    |
-| Bakery       | S_mut | 2   | 0.466216        | 0.466216    |
-| Beer         | N_mut | 7   | 0.0932202971429 | 0.0508475   |
-| Beer         | S_mut | 6   | 0.217513996667  | 0.08050825  |
-| Bioethanol   | N_mut | 2   | 0.277778        | 0.277778    |
-| Bioethanol   | S_mut | 4   | 0.259259125     | 0.0185185   |
-| Cider        | N_mut | 2   | 0.1911765       | 0.1911765   |
-| Cider        | S_mut | 2   | 0.2794115       | 0.2794115   |
-| Clinical     | N_mut | 6   | 0.101584015     | 0.016355145 |
-| Clinical     | S_mut | 4   | 0.236587375     | 0.1577544   |
-| Dairy        | N_mut | 3   | 0.475308666667  | 0.388889    |
-| Dairy        | S_mut | 2   | 0.5314815       | 0.5314815   |
-| Distillery   | S_mut | 6   | 0.160919566667  | 0.1034484   |
-| Distillery   | N_mut | 5   | 0.1896552       | 0.0344828   |
-| Fermentation | S_mut | 6   | 0.240740616667  | 0.1666665   |
-| Fermentation | N_mut | 3   | 0.4027776       | 0.333333    |
-| Flower       | N_mut | 2   | 0.285714        | 0.285714    |
-| Flower       | S_mut | 2   | 0.3571425       | 0.3571425   |
-| Fruit        | N_mut | 4   | 0.16489355      | 0.0851063   |
-| Fruit        | S_mut | 6   | 0.160471316667  | 0.04397165  |
-| Human        | N_mut | 2   | 0.44354855      | 0.44354855  |
-| Human        | S_mut | 5   | 0.43225804      | 0.403226    |
-| Industrial   | N_mut | 3   | 0.183333433333  | 0.25        |
-| Industrial   | S_mut | 3   | 0.3222221       | 0.1         |
-| Insect       | N_mut | 3   | 0.308333333333  | 0.225       |
-| Insect       | S_mut | 2   | 0.6375          | 0.6375      |
-| Lab_strain   | N_mut | 2   | 0.5             | 0.5         |
-| Lab_strain   | S_mut | 2   | 0.75            | 0.75        |
-| Nature       | N_mut | 8   | 0.0721625275    | 0.01442309  |
-| Nature       | S_mut | 6   | 0.139423056667  | 0.01923079  |
-| Palm_wine    | N_mut | 4   | 0.4124999       | 0.40833315  |
-| Palm_wine    | S_mut | 5   | 0.42333352      | 0.166667    |
-| Sake         | N_mut | 4   | 0.7202244       | 0.9298105   |
-| Sake         | S_mut | 2   | 0.994681        | 0.994681    |
-| Soil         | N_mut | 3   | 0.179824433333  | 0.0789474   |
-| Soil         | S_mut | 4   | 0.2302632       | 0.2039472   |
-| Soil         | N_mut | 2   | 0.0789474       | 0.0789474   |
-| Tree         | N_mut | 6   | 0.172433166667  | 0.0546875   |
-| Tree         | S_mut | 6   | 0.1961805       | 0.0234375   |
-| Unknown      | N_mut | 4   | 0.202711725     | 0.1375663   |
-| Unknown      | N_mut | 1   | 0.0178571       | 0.0178571   |
-| Unknown      | S_mut | 5   | 0.1607143       | 0.0357143   |
-| Water        | N_mut | 2   | 0.1578945       | 0.1578945   |
-| Water        | S_mut | 2   | 0.394737        | 0.394737    |
-| Wine         | N_mut | 11  | 0.0137648890909 | 0.00403226  |
-| Wine         | N_mut | 1   | 0.00201613      | 0.00201613  |
-| Wine         | S_mut | 4   | 0.03931439      | 0.019153215 |
+| type                   | num  | fit_mean       | fit_median   |
+|------------------------|------|----------------|--------------|
+| Nonsynonymous_mutation | 5929 | 0.984781866716 | 0.9879315165 |
+| Synonymous_mutation    | 1665 | 0.98783557355  | 0.9887744535 |
+| Nonsense_mutation      | 162  | 0.935173157813 | 0.9403812345 |
 
 ```bash
 cd ~/data/yeast/fitness
