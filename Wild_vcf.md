@@ -10,6 +10,8 @@ Steps followed here are processes to convert the mutation info into vcf format f
 
 There are some data from the [README.md](https://github.com/wang-q/pars#readme). Better completing those steps.
 
+Scripts could be partly found in the github repo [pars](https://github.com/wang-q/pars). Make sure you clone it before.
+
 ## Data preparation
 
 ### Split strains from 1002 genomes project according to ecological groups
@@ -54,7 +56,7 @@ cat 1002genomes.tsv | sed '1d' | wc -l
 wc -l *.lst
 #  23 group.lst
 #1034 total
-# result is 1011 after subtraction, split correctly
+# the result is 1011 after subtraction, split correctly
 ```
 
 - Split the `1011Matrix.gvcf.gz` into small files according to subgroups
@@ -199,37 +201,37 @@ faops size gene.mut.fa
 #VMA7    119
 ```
 
+### Use blast to get genome location of genes
+
+```bash
+# S288c database was used in pars
+# make sure you have already completed the most part of pars
+# otherwise using the followed command
+
 # formatdb
-makeblastdb -dbtype nucl -in S288c.fa -parse_seqids
+# cd ~/data/mrna-structure/blast
+# makeblastdb -dbtype nucl -in S288c.fa -parse_seqids
+
+cd ~/data/yeast/gene
 
 # blast every transcripts against genome
 blastn -task blastn -evalue 1e-3 -num_threads 4 -num_descriptions 10 -num_alignments 10 -outfmt 0 \
     -dust yes -soft_masking true \
-    -db S288c.fa -query gene.mut.fa -out gene.blast
+    -db ~/data/mrna-structure/blast/S288c.fa -query gene.mut.fa -out gene.blast
 
-perl ~/Scripts/pars/blastn_transcript.pl -f gene.blast -m 0
+# identity 90 could give out the most gene wanted
+perl ~/Scripts/pars/blastn_transcript.pl -i 90 -f gene.blast -m 0
 
-# extract CDS region
-# because of the coding region was selected from the SGD coding region
-faops some ../mrna-structure/sgd/orf_genomic_all.fasta \
-    gene/sysname.lst gene/21orf.fa
+cat gene.blast.tsv | wc -l
+#19
+# LSM1 and VMA7 excluded
+# too short (showed in previous step)
+```
 
-# rename by standard name
-faops replace -l 0 gene/21orf.fa \
-    <(cat gene/std_sysname.tsv | tsv-select -f 2,1) \
-    gene/std_orf.fa
+### Get vcf of genes and subpopulations
 
-rm gene/21orf.fa
+There are few things should be considered:
 
-# align to the CDS
-for gene in $(cat gene/stdname.lst)
-do
-    echo "==> ${gene}"
-    
-    cat  gene/${gene}/${gene}.mut.fa \
-        <(faops one -l 0 gene/std_orf.fa ${gene} stdout) |
-        muscle -out gene/${gene}/${gene}.aln.fa -quiet
-done
 
 <!--
 ```bash
