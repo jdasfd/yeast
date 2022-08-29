@@ -388,64 +388,52 @@ Rscript -e '
 | Lab_strain   | 9         | 9   |
 | Probiotic    | 6         | 6   |
 
-cat fitness/group.fit.tsv |
-    tsv-uniq -f 2,3,4,5 |
+```bash
+cd ~/data/yeast/vcf
+
+cat ../isolates/group.lst | wc -l
+#23
+
+cat all.vcf.tsv |
+    tsv-summarize -g 1,2,3,4,10 --count |
     wc -l
-#66
-# totally 66 snps ( 1 snp may exists more than 1 group)
-# but 1 snp may have different freq among groups
+#248
 
-# other muts without occurring among all groups
-cat vcf/region/all.mut.vcf |
-    tsv-join -k 1,2,3,4 \
-    --filter-file <(cat fitness/group.fit.tsv | tsv-select -f 2,3,4,5) \
-    --exclude |
-    awk '{print ("other" "\t" $0 "\t" "0" "\t" "-" "\t" "-")}' \
-    > fitness/other.fit.tsv
-
-# combine 2 parts
-cat fitness/group.fit.tsv fitness/other.fit.tsv \
-    > fitness/all.fit.tsv
-
-cat fitness/all.fit.tsv | wc -l
-#8454
-# 8454 - (179 - 66) = 8341
-# so some snps exist among groups
-
-rm fitness/group.fit.tsv fitness/other.fit.tsv
-
-# all nonsense mutations in wild
-cat all.fit.tsv |
-    tsv-filter --str-eq 7:Nonsense_mutation --str-ne 1:other \
-    > nonsense.tsv
+# all snps repeated more than 10 times
+cat all.vcf.tsv |
+    tsv-summarize -g 1,2,3,4,10 --count |
+    tsv-sort -r -nk 6,6 |
+    tsv-select -f 1,5,6 |
+    tsv-filter --ge 3:10 |
+    sed '1ichr\tgene\tgroup' |
+    mlr --itsv --omd cat
 ```
 
-- Basic info
+| chr | gene | group |
+| --- | --- | --- |
+| chromosome12 | EST1 | 23 |
+| chromosome7 | GET1 | 22 |
+| chromosome7 | GET1 | 22 |
+| chromosome12 | TSR2 | 22 |
+| chromosome6 | RPL29 | 21 |
+| chromosome5 | IES6 | 21 |
+| chromosome14 | EOS1 | 21 |
+| chromosome14 | EOS1 | 21 |
+| chromosome3 | BUD23 | 20 |
+| chromosome5 | IES6 | 19 |
+| chromosome12 | CCW12 | 19 |
+| chromosome12 | EST1 | 18 |
+| chromosome3 | BUD23 | 16 |
+| chromosome7 | GET1 | 13 |
+| chromosome6 | RPL29 | 12 |
+| chromosome5 | IES6 | 11 |
+| chromosome13 | ASC1 | 11 |
+| chromosome12 | EST1 | 11 |
+| chromosome5 | IES6 | 10 |
+| chromosome12 | TSR2 | 10 |
 
 ```bash
-mkdir ~/data/yeast/fitness/freq
-cd ~/data/yeast/fitness
-
-# all repeated snps
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-summarize -g 2,3,4,5 --count |
-    tsv-filter --gt 5:1 |
-    tsv-sort -r -nk 5,5 |
-    parallel --col-sep "\t" -j 6 -k '
-        gene=$(cat ../vcf/region/region_name.tsv |
-                  tsv-filter --str-eq 3:{1} --le 4:{2} --ge 5:{2} |
-                  tsv-select -f 1)
-        echo -e "${gene}\t{1}\t{2}\t{3}\t{4}\t{5}"
-    ' | mlr --itsv --omd cat
-
-# number of snps among groups
-cat all.fit.tsv |
-    tsv-filter --str-ne 1:other |
-    tsv-summarize -g 1 --count |
-    tsv-sort -nk 2,2 -r |
-    sed '1igroup\tnum' |
-    mlr --itsv --omd cat
+cd ~/data/yeast/vcf
 
 # freq among groups
 cat all.fit.tsv |
@@ -642,33 +630,6 @@ existent snps freq:
 | Wine         | N_mut | 11  | 0.0137648890909 | 0.00403226  |
 | Wine         | N_mut | 1   | 0.00201613      | 0.00201613  |
 | Wine         | S_mut | 4   | 0.03931439      | 0.019153215 |
-
-number of snps among groups:
-
-| group        | num |
-|--------------|-----|
-| Wine         | 16  |
-| Nature       | 14  |
-| Beer         | 13  |
-| Tree         | 12  |
-| Distillery   | 11  |
-| Unknown      | 10  |
-| Fruit        | 10  |
-| Clinical     | 10  |
-| Soil         | 9   |
-| Palm_wine    | 9   |
-| Fermentation | 9   |
-| Human        | 7   |
-| Sake         | 6   |
-| Industrial   | 6   |
-| Bioethanol   | 6   |
-| Insect       | 5   |
-| Dairy        | 5   |
-| Bakery       | 5   |
-| Water        | 4   |
-| Lab_strain   | 4   |
-| Flower       | 4   |
-| Cider        | 4   |
 
 - Chi-square
 
