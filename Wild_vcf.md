@@ -796,11 +796,13 @@ cat all.vcf.tsv |
 Rscript -e '
     library(ggplot2)
     library(readr)
+    library(plyr)
     args <- commandArgs(T)
     fit <- read_tsv(args[1], show_col_types = FALSE)
+    fitv <- ddply(fit, "type", summarise, grp.mean = mean(fit))
     p <- ggplot(fit, aes(x = fit, fill = type)) +
-         geom_histogram() +
-         facet_grid(~type)
+         geom_histogram(alpha = 0.5, position = "identity") +
+         geom_vline(data = fitv, aes(xintercept = grp.mean, color = type), linetype = "dashed")
     ggsave(p, height = 6, width = 12, file = "../results/dist.fit.pdf")
 ' ../results/dist.fit.tsv
 
