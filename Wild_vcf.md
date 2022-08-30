@@ -656,13 +656,14 @@ cat all.vcf.tsv |
 Rscript -e '
     library(ggplot2)
     library(readr)
+    library(plyr)
     library(gridExtra)
     args <- commandArgs(T)
     freq <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(freq, aes(x = freq, fill = type, color = type)) +
-         geom_histogram(alpha = 0.2, position = "dodge") +
-         facet_grid(~group)
-    ggsave(p, height = 6, width = 45, file = "../results/dist.freq.pdf")
+    p <- ggplot(freq, aes(x = freq, fill = type)) +
+         geom_histogram(alpha = 0.5, position = "identity") +
+         facet_wrap(~group, nrow = 6)
+    ggsave(p, height = 15, width = 15, file = "../results/dist.freq.pdf")
 ' ../results/dist.freq.tsv
 ```
 
