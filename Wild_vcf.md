@@ -26,7 +26,6 @@ cp xlsx2csv.pl ~/data/yeast/scripts
 brew install blast
 brew install bcftools
 brew install wang-q/tap/tsv-utils
-
 ```
 
 ## Data preparation
