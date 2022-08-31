@@ -12,6 +12,23 @@ There are some data from the [README.md](https://github.com/wang-q/pars#readme).
 
 Scripts could be partly found in the github repo [pars](https://github.com/wang-q/pars). Make sure you clone it before.
 
+## Software
+
+```bash
+cd ~/Scripts
+git clone https://github.com/wang-q/fig_table.git
+
+cd fig_table
+cp xlsx2csv.pl ~/data/yeast/scripts
+```
+
+```bash
+brew install blast
+brew install bcftools
+brew install wang-q/tap/tsv-utils
+
+```
+
 ## Data preparation
 
 ### Split strains from 1002 genomes project according to ecological groups
