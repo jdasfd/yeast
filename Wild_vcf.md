@@ -917,6 +917,8 @@ ggsave(p, height = 6, width = 15, file = "../results/group.highfreq.fit.pdf")
 The experiment from the original article was almost a simulation of random mutations. All detected mutations were not biased to either nonsynonymous mutation or synonymous mutation. So all unique fixed SNPs after would be random as well if there were no other reasons.
 
 ```bash
+cd ~/data/yeast/vcf
+
 raw1=$(cat all.vcf.tsv |
           tsv-uniq -f 1,2,3,4 |
           tsv-summarize -g 9 --count |
@@ -951,6 +953,38 @@ echo -e "$raw1\t$raw2" |
 ```
 
 ### Linear regression
+
+```bash
+cd ~/data/yeast/vcf
+
+cat all.vcf.tsv |
+    tsv-select -f 11,5,8 |
+    sed '1igroup\tfreq\tfit' \
+    > ../results/group.freq_fit.tsv
+
+Rscript -e '
+library(ggplot2)
+library(readr)
+args <- commandArgs(T)
+data <- read_tsv(args[1], show_col_types = FALSE)
+p <- ggplot(data, aes(x = freq, y = fit)) +
+     geom_point() +
+     geom_smooth(method = "lm")
+ggsave(p, height = 6, width = 8, file = "../results/group.freq_fit.mixed.pdf")
+' ../results/group.freq_fit.tsv
+
+Rscript -e '
+library(ggplot2)
+library(readr)
+args <- commandArgs(T)
+data <- read_tsv(args[1], show_col_types = FALSE)
+p <- ggplot(data, aes(x = freq, y = fit, color = group)) +
+     geom_point() +
+     geom_smooth(method = "lm") +
+     facet_wrap(~group)
+ggsave(p, height = 6, width = 15, file = "../results/group.freq_fit.pdf")
+' ../results/group.freq_fit.tsv
+```
 
 ## Count SNPs existed in other closely related species from original article
 
