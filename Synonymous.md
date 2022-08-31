@@ -12,6 +12,13 @@ cd fig_table
 cp xlsx2csv.pl ~/data/yeast/scripts
 ```
 
+- UMI-tools
+
+```bash
+pip install umi_tools
+umi_tools --help
+```
+
 - AmpUMI
 
 ```bash
@@ -114,21 +121,25 @@ md5sum --check ena_info.md5.txt
 
 Download all supplementary files and tables from the [website](https://www.nature.com/articles/s41586-022-04823-w) and save them into info dir.
 
+- Information of sequencing files
+
 ```bash
 mkdir -p ~/data/yeast/trim
 cd ~/data/yeast
 
 # get all DNA and RNA seq files
 cat ena/ena_info.csv |
+    tsv-select -H -d, -f name,srx,srr |
     mlr --icsv --otsv cat |
-    tsv-select -H -f name,srx,srr |
-    tsv-filter -H --regex 'name:\.t\d' |
-    sed '1d' | 
+    sed 1d |
     tr '.' '\t' |
-    sed 's/t0/t0\t0/' |
-    sed '1igene\ttime\tgroup\tsrx\tsrr' \
-    > info/gene_time.tsv
+    sed '1igene\ttype\trepeat\tsrx\tsrr' \
+    > info/file.tsv
+```
 
+- Primers
+
+```bash
 # 41586_2022_4823_MOESM7_ESM.xlsx contains multiple sheets
 perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM7_ESM.xlsx \
     --sheet "YPD DFE Sequencing primers " |
@@ -148,12 +159,38 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM7_ESM.xlsx \
     sed 's/Reverse_i7/R/'\
     > info/DFE_seq_primers.tsv
 
+perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM7_ESM.xlsx \
+    --sheet "Expression sequencing primers" |
+    sed '1,2d' |
+    tr " " "_" |
+    tr "-" "_" |
+    sed 's/^"//' |
+    sed 's/",/,/' | 
+    sed 's/Reverse_i7/R/'\
+    > info/DFE_seq_primers.tsv
+
 cat info/DFE_seq_primers.tsv |
     cut -f 1 |
     cut -d '_' -f 1 |
     sort |
     uniq \
     > info/gene.lst
+```
+
+### Grouping files according to genes
+
+```bash
+cd ~/data/yeast
+
+cat info/file.tsv |
+    sed '1d' |
+    parallel --col-sep "\t" -k -j 4 '
+    if ! [[ -d ena/{2}_{3} ]]; then
+        mkdir ena/{2}_{3}
+    fi
+    mv ena/{5}_1.fastq.gz ena/{2}_{3}/{1}_{2}_1.fastq.gz
+    mv ena/{5}_2.fastq.gz ena/{2}_{3}/{1}_{2}_2.fastq.gz
+    '
 ```
 
 ### Comparing SE and PE
@@ -192,20 +229,7 @@ First, using SE files to estimate fitness. How to deal with PE UMI-seq files wil
 
 - Grouping files
 
-```bash
-cd ~/data/yeast
 
-# grouping and decompress for AmpUMI using
-cat info/gene_time.tsv |
-    sed '1d' |
-    parallel --col-sep "\t" -k -j 4 '
-    if ! [[ -d trim/repeat{3} ]]; then
-        mkdir trim/repeat{3}
-    fi
-    cp ena/{5}_1.fastq.gz trim/repeat{3}/{1}_{2}_{3}.fastq.gz
-    gzip -d trim/repeat{3}/{1}_{2}_{3}.fastq.gz
-    '
-```
 
 - AmpUMI
 
