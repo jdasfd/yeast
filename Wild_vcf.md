@@ -26,6 +26,7 @@ cp xlsx2csv.pl ~/data/yeast/scripts
 brew install blast
 brew install bcftools
 brew install wang-q/tap/tsv-utils
+brew install brewsci/bio/vt
 ```
 
 ## Data preparation
@@ -301,7 +302,7 @@ cat gene/gene.blast.tsv |
 for group in $(cat isolates/group.lst)
 do
     bcftools view -Ov -R vcf/region.1based.bed \
-                  -v snps,mnps,ref --threads 10 \
+                  -v snps,ref --threads 10 \
                   vcf/group/1011Matrix.${group}.bcf |
     bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' |
     tsv-join -f vcf/gene.vcf -k 1,2,3,4 -a 5,6,7 -z |
@@ -1024,3 +1025,20 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
 | Nonsense_mutation      | No  | 146  |
 
 "Yes" here meant muts could be found in at least one of nearest 5 yeast species. There were more than 800 muts existed among other yeast groups.
+
+```bash
+# test
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -V indels | bcftools norm -m- | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | wc -l
+Lines   total/split/realigned/skipped:  1625809/81320/0/0
+#1709097
+
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -V indels | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | wc -l
+#1625809
+
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -V indels | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | tsv-filter --iregex 4:, | wc -l
+#81320
+
+bcftools view ../../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 | bcftools norm -m- | bcftools view --threads 8 -V indels | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | wc -l
+Lines   total/split/realigned/skipped:  1754866/129507/0/0
+#1745090
+```
