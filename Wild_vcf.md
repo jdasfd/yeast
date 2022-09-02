@@ -82,6 +82,14 @@ wc -l *.lst
 cd ~/data/yeast
 mkdir -p vcf/group
 
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
+    bcftools norm -m -both |
+    vt decompose_blocksub - |
+    bcftools view -V indels |
+    bcftools query -f \
+    '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
+    -o vcf/all.snp.tsv
+
 # split vcf according to groups
 for group in $(cat isolates/group.lst)
 do
@@ -216,6 +224,20 @@ faops size gene.mut.fa
 #TSR2    150
 #VMA21   147
 #VMA7    119
+```
+### Download genomes
+
+```bash
+mkdir -p ~/data/yeast/GENOMES/BY4742
+cd ~/data/yeast/GENOMES/BY4742
+
+# BY4742 strain was used in the article
+# genome
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Stanford_2014_JRIR00000000/BY4742_Stanford_2014_JRIR00000000.fsa.gz
+# annotation
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Stanford_2014_JRIR00000000/BY4742_JRIR00000000.gff.gz
+# gatk.vcf
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Stanford_2014_JRIR00000000/BY4742.gatk.vcf.gz
 ```
 
 ### Use blast to get genome location of genes
@@ -1040,5 +1062,19 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -V indels
 
 bcftools view ../../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 | bcftools norm -m- | bcftools view --threads 8 -V indels | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | wc -l
 Lines   total/split/realigned/skipped:  1754866/129507/0/0
+#1745090
+
+bcftools view ../../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 | bcftools norm -m -both | vt decompose_blocksub - | bcftools view -V indels | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | wc -l
+
+#Lines   total/split/realigned/skipped:  1754866/129507/0/0
+#
+#stats: no. variants                       : 1920571
+#       no. biallelic block substitutions  : 18744
+#
+#       no. additional SNPs                : 18744
+#       no. variants after decomposition   : 1920571
+#
+#Time elapsed: 8m 11s
+#
 #1745090
 ```
