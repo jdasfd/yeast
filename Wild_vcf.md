@@ -29,11 +29,44 @@ brew install wang-q/tap/tsv-utils
 brew install brewsci/bio/vt
 ```
 
-## Data preparation
+## SNP in wild population
 
-### Split strains from 1002 genomes project according to ecological groups
+### All SNPs extracted from the vcf
 
-- Acquire info and split to subpopulations
+All information were included in a tsv: chr, pos, ALT, REF, freq, num_ALT, num_all.
+
+```bash
+# get all SNPs
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
+    bcftools norm -m -both |
+    vt decompose_blocksub - |
+    bcftools view -V indels |
+    bcftools query -f \
+    '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
+    -o vcf/all.snp.tsv
+
+# the number of all SNPs
+cat vcf/all.snp.tsv | wc -l
+#1745090
+
+cat vcf/all.snp.tsv |
+    tsv-filter --ge 5:0.05 |
+    wc -l
+#139181
+
+# SNP with multiple mutations
+cat vcf/all.snp.tsv |
+    tsv-select -f 1,2,3 |
+    tsv-uniq -r |
+    wc -l
+#84576
+```
+
+### Split strains from 1002 genomes project into subpopulations
+
+- Ecological origins
+
+The groups were divided directly according to the info recorded in the project, which contained each strain's ecological origin. 
 
 ```bash
 mkdir ~/data/yeast/isolates
@@ -76,19 +109,13 @@ wc -l *.lst
 # the result is 1011 after subtraction, split correctly
 ```
 
-- Split the `1011Matrix.gvcf.gz` into small files according to subpopulations
+- Lineages (update soon)
+
+### Split the `1011Matrix.gvcf.gz` into small files according to subpopulations
 
 ```bash
 cd ~/data/yeast
 mkdir -p vcf/group
-
-bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
-    bcftools norm -m -both |
-    vt decompose_blocksub - |
-    bcftools view -V indels |
-    bcftools query -f \
-    '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
-    -o vcf/all.snp.tsv
 
 # split vcf according to groups
 for group in $(cat isolates/group.lst)
