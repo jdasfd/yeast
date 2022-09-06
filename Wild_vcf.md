@@ -57,6 +57,24 @@ egaz prepseq \
     --repeatmasker "--species Fungi --gff --parallel 12" \
     --min 1000 --gi -v \
     -o GENOMES/S288c
+
+egaz prepseq \
+    download/BY4742_Toronto_2012.fsa.gz \
+    --repeatmasker "--species Fungi --gff --parallel 12" \
+    --min 1000 --gi -v \
+    -o GENOMES/BY4742
+
+gzip -dcf download/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz > GENOMES/S288c/chr.gff
+gzip -dcf download/BY4742_Toronto_2012.gff.gz > GENOMES/BY4742/chr.gff
+
+# prep assembly
+egaz template \
+    download \
+    --prep -o GENOMES \
+    --min 1000 --about 1_000_000 \
+    -v --repeatmasker "--species Fungi --parallel 12"
+
+bash GENOMES/0_prep.sh
 ```
 
 ## SNP in wild population
@@ -66,6 +84,8 @@ egaz prepseq \
 All information were included in a tsv: chr, pos, ALT, REF, freq, num_ALT, num_all.
 
 ```bash
+cd ~/data/yeast
+
 # get all SNPs
 bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
     bcftools norm -m -both |
@@ -101,6 +121,54 @@ done
 #138440
 #736
 #5
+```
+
+### SNPs in different genome regions
+
+```bash
+cd ~/data/yeast
+
+# 1-based gene region in bed
+# vcf based on the forward strain
+cat ../mrna-structure/gene-filter/gene_list.csv |
+    perl -nla -F, -e '
+    BEGIN {
+                our %roman = (
+                    "XVI"   => 16,
+                    "XV"    => 15,
+                    "XIV"   => 14,
+                    "XIII"  => 13,
+                    "XII"   => 12,
+                    "XI"    => 11,
+                    "X"     => 10,
+                    "IX"    => 9,
+                    "VIII"  => 8,
+                    "VII"   => 7,
+                    "VI"    => 6,
+                    "V"     => 5,
+                    "IV"    => 4,
+                    "III"   => 3,
+                    "II"    => 2,
+                    "I"     => 1
+                );
+            }
+    $F[1] =~ /(.+)\([+-]\):(\d+)-(\d+)/;
+    $chr = "chromosome" . $roman{$1};
+    $begin = $2;
+    $end = $3;
+    print "$chr\t$begin\t$end";
+    ' \
+    > vcf/gene.bed
+
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -R vcf/gene.bed |
+    bcftools norm -m -both |
+    vt decompose_blocksub - |
+    bcftools view -V indels |
+    bcftools query -f \
+    '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
+    -o vcf/gene.snp.tsv
+
+cat vcf/gene.snp.tsv | wc -l
 ```
 
 ```bash
