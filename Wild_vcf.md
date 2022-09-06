@@ -29,6 +29,36 @@ brew install wang-q/tap/tsv-utils
 brew install brewsci/bio/vt
 ```
 
+## Genome alignment
+
+### Download genomes
+
+```bash
+mkdir -p ~/data/yeast/download
+cd ~/data/yeast/download
+
+# BY4742 strain was used in the article
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.fsa.gz
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.gff.gz
+
+# S288c - reference genome
+aria2c -c ftp://ftp.ensembl.org/pub/release-105/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz
+aria2c -c ftp://ftp.ensembl.org/pub/release-105/gff3/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz
+```
+
+### Prepare sequences
+
+```bash
+cd ~/data/yeast
+
+# reference
+egaz prepseq \
+    download/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz \
+    --repeatmasker "--species Fungi --gff --parallel 12" \
+    --min 1000 --gi -v \
+    -o GENOMES/S288c
+```
+
 ## SNP in wild population
 
 ### All SNPs extracted from the vcf
@@ -49,17 +79,38 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
 cat vcf/all.snp.tsv | wc -l
 #1745090
 
-cat vcf/all.snp.tsv |
-    tsv-filter --ge 5:0.05 |
-    wc -l
+for i in {1..3}
+do
+    cat vcf/all.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
+done
+#1658367
+#84576
+#2147
+
+# freq >= 0.05
+cat vcf/all.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
 #139181
 
-# SNP with multiple mutations
-cat vcf/all.snp.tsv |
-    tsv-select -f 1,2,3 |
-    tsv-uniq -r |
-    wc -l
-#84576
+for i in {0..3}
+do
+    cat vcf/all.snp.tsv |
+        tsv-filter --ge 5:0.05 |
+        tsv-uniq -f 1,2 -a $i |
+        wc -l
+done
+#138440
+#736
+#5
+```
+
+```bash
+# genome length
+faops size ../mrna-structure/blast/S288c.fa |
+    tsv-filter --str-ne 1:Mito |
+    tsv-select -f 2 |
+    paste -sd+ |
+    bc
+#12071326
 ```
 
 ### Split strains from 1002 genomes project into subpopulations
@@ -251,20 +302,6 @@ faops size gene.mut.fa
 #TSR2    150
 #VMA21   147
 #VMA7    119
-```
-### Download genomes
-
-```bash
-mkdir -p ~/data/yeast/GENOMES/BY4742
-cd ~/data/yeast/GENOMES/BY4742
-
-# BY4742 strain was used in the article
-# genome
-wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Stanford_2014_JRIR00000000/BY4742_Stanford_2014_JRIR00000000.fsa.gz
-# annotation
-wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Stanford_2014_JRIR00000000/BY4742_JRIR00000000.gff.gz
-# gatk.vcf
-wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Stanford_2014_JRIR00000000/BY4742.gatk.vcf.gz
 ```
 
 ### Use blast to get genome location of genes
