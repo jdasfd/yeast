@@ -320,6 +320,78 @@ done
 #0
 ```
 
+### SNPs in selected 21 genes
+
+```bash
+cd ~/data/yeast
+
+# bcftools required 1-based bed for snp filtering
+cat gene/gene.blast.tsv |
+     perl -nla -F"\t" -e '
+          BEGIN {
+              our %roman = (
+                  "XVI"   => 16,
+                  "XV"    => 15,
+                  "XIV"   => 14,
+                  "XIII"  => 13,
+                  "XII"   => 12,
+                  "XI"    => 11,
+                  "X"     => 10,
+                  "IX"    => 9,
+                  "VIII"  => 8,
+                  "VII"   => 7,
+                  "VI"    => 6,
+                  "V"     => 5,
+                  "IV"    => 4,
+                  "III"   => 3,
+                  "II"    => 2,
+                  "I"     => 1
+              );
+          }
+          my $chr = $roman{$F[2]};
+          print "chromosome$chr\t$F[3]\t$F[4]";
+     ' \
+     > vcf/region.1based.bed
+
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -R vcf/region.1based.bed |
+    bcftools norm -m -both |
+    vt decompose_blocksub - |
+    bcftools view -V indels |
+    bcftools query -f \
+    '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
+    -o vcf/gene_21.snp.tsv
+```
+
+```bash
+# bcftools required 1-based bed for snp filtering
+cat gene/gene.blast.tsv |
+     perl -nla -F"\t" -e '
+          BEGIN {
+              our %roman = (
+                  "XVI"   => 16,
+                  "XV"    => 15,
+                  "XIV"   => 14,
+                  "XIII"  => 13,
+                  "XII"   => 12,
+                  "XI"    => 11,
+                  "X"     => 10,
+                  "IX"    => 9,
+                  "VIII"  => 8,
+                  "VII"   => 7,
+                  "VI"    => 6,
+                  "V"     => 5,
+                  "IV"    => 4,
+                  "III"   => 3,
+                  "II"    => 2,
+                  "I"     => 1
+              );
+          }
+          my $chr = "chromosome" . $roman{$F[2]};
+          print "$chr\t$F[3]\t$F[4]";
+     ' \
+     > vcf/gene_21.bed
+```
+
 ## Genome alignment
 
 ### Download genomes
