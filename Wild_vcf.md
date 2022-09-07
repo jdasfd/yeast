@@ -100,26 +100,50 @@ cat info/fit.tsv | wc -l
 #8341
 ```
 
-### Prepare sequences
+- Gene sequences
 
 ```bash
-cd ~/data/yeast
+# get fa according to the article info
+# all detected muts were included
+cd ~/data/yeast/gene
 
-# reference
-egaz prepseq \
-    download/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz \
-    --repeatmasker "--species Fungi --gff --parallel 12" \
-    --min 1000 --gi -v \
-    -o GENOMES/S288c
+rm gene.mut.fa
 
-egaz prepseq \
-    download/BY4742_Toronto_2012.fsa.gz \
-    --repeatmasker "--species Fungi --gff --parallel 12" \
-    --min 1000 --gi -v \
-    -o GENOMES/BY4742
+for gene in $(cat stdname.lst)
+do
+    echo "==> ${gene}"
 
-gzip -dcf download/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz > GENOMES/S288c/chr.gff
-gzip -dcf download/BY4742_Toronto_2012.gff.gz > GENOMES/BY4742/chr.gff
+    echo ">${gene}" \
+        >> gene.mut.fa
+
+    cat ../info/fit.tsv |
+        grep "^$gene" |
+        tsv-select -f 1,2,3 |
+        tsv-uniq |
+        sort -nk 2,2 |
+        perl -nae '
+            if (!defined $i){
+                $i = 1;
+                print $F[2];
+                $i++;
+                }
+            elsif($i == $F[1]){
+                print $F[2];
+                $i++;
+            }
+            else{
+                print "N";
+                $i++;
+                redo;
+            }
+            END{print qq{\n};}' \
+        >> gene.mut.fa
+done
+
+# All genes and their length
+faops size gene.mut.fa
+# check whether all undetected muts converted to N
+```
 
 ### Use blast to get genome location of genes
 
