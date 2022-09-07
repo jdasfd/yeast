@@ -196,11 +196,14 @@ cd ~/data/yeast
 perl scripts/loc2vcf.pl -b gene/gene.blast.tsv \
     -t info/fit.tsv |
     tsv-sort -nk 2,2 \
-    > vcf/random.snp.vcf
+    > vcf/random.snp.tsv
 
-cat vcf/random.snp.vcf | wc -l
+cat vcf/random.snp.tsv | wc -l
 #8341
 # the same number of info/fit.tsv
+
+cat vcf/random.snp.tsv |
+    s
 ```
 
 ## SNP in wild population
@@ -361,6 +364,8 @@ cat vcf/gene_all.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
 ### SNPs not in gene regions
 
 ```bash
+cd ~/data/yeast
+
 cat vcf/all.snp.tsv | tsv-join -k 1,2,3,4 -e \
     -f vcf/gene_all.snp.tsv \
     > vcf/not_gene.snp.tsv
@@ -533,13 +538,10 @@ X-squared = 17.542, df = 1, p-value = 2.81e-05
 
 ```
 
-## Genome alignment
-
-### Download genomes
+### Random mutations among wild groups
 
 ```bash
-mkdir -p ~/data/yeast/download
-cd ~/data/yeast/download
+cd ~/data/yeast/vcf
 
 # BY4742 strain was used in the article
 wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.fsa.gz
@@ -550,42 +552,38 @@ aria2c -c ftp://ftp.ensembl.org/pub/release-105/fasta/saccharomyces_cerevisiae/d
 aria2c -c ftp://ftp.ensembl.org/pub/release-105/gff3/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz
 ```
 
-### Prepare sequences
+### Statistical results of mutations
 
 ```bash
-cd ~/data/yeast
+cd ~/data/yeast/vcf
 
-# reference
-egaz prepseq \
-    download/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz \
-    --repeatmasker "--species Fungi --gff --parallel 12" \
-    --min 1000 --gi -v \
-    -o GENOMES/S288c
+cat random.wild.snp.tsv |
+    tsv-summarize -g 6 --mean 5 --median 5 |
+    sed '1itype\tfit_mean\tfit_median' |
+    mlr --itsv --omd cat
 
-egaz prepseq \
-    download/BY4742_Toronto_2012.fsa.gz \
-    --repeatmasker "--species Fungi --gff --parallel 12" \
-    --min 1000 --gi -v \
-    -o GENOMES/BY4742
+cat random.wild.snp.tsv |
+    tsv-select -f 6,7,5,8 |
+    perl -nla -e '
+        print join("\t",@F) if $F[0] =~ s/^Non.+$/N_mut/;
+        print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
+    ' |
+    sed '1itype\tgene\tfit\tfreq' \
+    > ../results/wild.tsv
 
-gzip -dcf download/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz > GENOMES/S288c/chr.gff
-gzip -dcf download/BY4742_Toronto_2012.gff.gz > GENOMES/BY4742/chr.gff
-
-# prep assembly
-egaz template \
-    download \
-    --prep -o GENOMES \
-    --min 1000 --about 1_000_000 \
-    -v --repeatmasker "--species Fungi --parallel 12"
 
 bash GENOMES/0_prep.sh
 ```
 
-### Split strains from 1002 genomes project into subpopulations
+### 
+
+## Split strains from 1002 genomes project into subpopulations
+
+### Get wild yeasts source from 1002 genomes project
 
 - Ecological origins
 
-The groups were divided directly according to the info recorded in the project, which contained each strain's ecological origin. 
+The groups were divided directly according to the info recorded in the project, which contained each strain's ecological origin. See the [project main page](http://1002genomes.u-strasbg.fr/) for more details.
 
 ```bash
 mkdir ~/data/yeast/isolates
@@ -657,6 +655,52 @@ cd ~/data/yeast/vcf/group
 parallel -j 4 " \
     bcftools index --threads 3 {} \
 " ::: $(ls *.bcf)
+## Genome alignment
+
+### Download genomes
+
+```bash
+mkdir -p ~/data/yeast/download
+cd ~/data/yeast/download
+
+# BY4742 strain was used in the article
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.fsa.gz
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.gff.gz
+
+# S288c - reference genome
+aria2c -c ftp://ftp.ensembl.org/pub/release-105/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz
+aria2c -c ftp://ftp.ensembl.org/pub/release-105/gff3/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz
+```
+
+### Prepare sequences
+
+```bash
+cd ~/data/yeast
+
+# reference
+egaz prepseq \
+    download/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz \
+    --repeatmasker "--species Fungi --gff --parallel 12" \
+    --min 1000 --gi -v \
+    -o GENOMES/S288c
+
+egaz prepseq \
+    download/BY4742_Toronto_2012.fsa.gz \
+    --repeatmasker "--species Fungi --gff --parallel 12" \
+    --min 1000 --gi -v \
+    -o GENOMES/BY4742
+
+gzip -dcf download/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz > GENOMES/S288c/chr.gff
+gzip -dcf download/BY4742_Toronto_2012.gff.gz > GENOMES/BY4742/chr.gff
+
+# prep assembly
+egaz template \
+    download \
+    --prep -o GENOMES \
+    --min 1000 --about 1_000_000 \
+    -v --repeatmasker "--species Fungi --parallel 12"
+
+bash GENOMES/0_prep.sh
 ```
 
 ## Statistical analysis
