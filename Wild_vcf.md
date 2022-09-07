@@ -123,7 +123,7 @@ done
 #5
 ```
 
-### SNPs in different genome regions
+### SNPs in gene regions
 
 ```bash
 cd ~/data/yeast
@@ -133,25 +133,25 @@ cd ~/data/yeast
 cat ../mrna-structure/gene-filter/gene_list.csv |
     perl -nla -F, -e '
     BEGIN {
-                our %roman = (
-                    "XVI"   => 16,
-                    "XV"    => 15,
-                    "XIV"   => 14,
-                    "XIII"  => 13,
-                    "XII"   => 12,
-                    "XI"    => 11,
-                    "X"     => 10,
-                    "IX"    => 9,
-                    "VIII"  => 8,
-                    "VII"   => 7,
-                    "VI"    => 6,
-                    "V"     => 5,
-                    "IV"    => 4,
-                    "III"   => 3,
-                    "II"    => 2,
-                    "I"     => 1
-                );
-            }
+              our %roman = (
+                  "XVI"   => 16,
+                  "XV"    => 15,
+                  "XIV"   => 14,
+                  "XIII"  => 13,
+                  "XII"   => 12,
+                  "XI"    => 11,
+                  "X"     => 10,
+                  "IX"    => 9,
+                  "VIII"  => 8,
+                  "VII"   => 7,
+                  "VI"    => 6,
+                  "V"     => 5,
+                  "IV"    => 4,
+                  "III"   => 3,
+                  "II"    => 2,
+                  "I"     => 1
+              );
+          }
     $F[1] =~ /(.+)\([+-]\):(\d+)-(\d+)/;
     $chr = "chromosome" . $roman{$1};
     $begin = $2;
@@ -169,6 +169,29 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -R vcf/ge
     -o vcf/gene.snp.tsv
 
 cat vcf/gene.snp.tsv | wc -l
+#1120343
+
+for i in {1..3}
+do
+    cat vcf/gene.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
+done
+#1073505
+#45921
+#917
+
+cat vcf/gene.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
+#82941
+
+for i in {1..3}
+do
+    cat vcf/gene.snp.tsv |
+        tsv-filter --ge 5:0.05 |
+        tsv-uniq -f 1,2 -a $i |
+        wc -l
+done
+#82630
+#311
+#0
 ```
 
 ```bash
