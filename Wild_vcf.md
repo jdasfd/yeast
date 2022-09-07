@@ -543,13 +543,27 @@ X-squared = 17.542, df = 1, p-value = 2.81e-05
 ```bash
 cd ~/data/yeast/vcf
 
-# BY4742 strain was used in the article
-wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.fsa.gz
-wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.gff.gz
+cat random.snp.tsv |
+    tsv-join -k 1,2,3,4 \
+    -f gene_21.snp.tsv -a 5,6,7 \
+    > random.wild.snp.tsv
 
-# S288c - reference genome
-aria2c -c ftp://ftp.ensembl.org/pub/release-105/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz
-aria2c -c ftp://ftp.ensembl.org/pub/release-105/gff3/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz
+cat random.snp.tsv |
+    tsv-join -k 1,2,3,4 \
+    -f gene_21.snp.tsv -e \
+    > random.not_wild.snp.tsv
+
+cat random.wild.snp.tsv |
+    tsv-summarize -g 1,2 --count |
+    tsv-summarize -g 3 --count
+#1       262
+#2       10
+
+cat random.wild.snp.tsv |
+    tsv-filter --ge 8:0.05 |
+    tsv-summarize -g 1,2 --count |
+    tsv-summarize -g 3 --count
+#1       20
 ```
 
 ### Statistical results of mutations
@@ -571,8 +585,30 @@ cat random.wild.snp.tsv |
     sed '1itype\tgene\tfit\tfreq' \
     > ../results/wild.tsv
 
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    library(plyr)
+    args <- commandArgs(T)
+    wild <- read_tsv(args[1], show_col_types = FALSE)
+    wildv <- ddply(wild, "type", summarise, grp.mean = mean(fit))
+    p <- ggplot(wild, aes(x = fit, fill = type)) +
+         geom_histogram(binwidth = 0.0025, alpha = 0.5, position = "identity") +
+         geom_vline(data = wildv, aes(xintercept = grp.mean, color = type), linetype = "dashed")
+    ggsave(p, height = 6, width = 6, file = "../results/wild.all.fit.pdf")
+' ../results/wild.tsv
 
-bash GENOMES/0_prep.sh
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    library(gridExtra)
+    args <- commandArgs(T)
+    wild <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(wild, aes(x = fit, fill = type)) +
+         geom_histogram(alpha = 0.5, position = "identity") +
+         facet_wrap(~gene, nrow = 6)
+    ggsave(p, height = 15, width = 15, file = "../results/wild.gene.fit.pdf")
+' ../results/wild.tsv
 ```
 
 ### 
