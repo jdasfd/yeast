@@ -581,32 +581,6 @@ egaz template \
 bash GENOMES/0_prep.sh
 ```
 
-### Chi-square tests
-
-```bash
-# genome length
-genom_len=$(cat GENOMES/S288c/chr.sizes |
-                tsv-filter --str-ne 1:Mito |
-                tsv-select -f 2 |
-                paste -sd+ |
-                bc)
-
-# gene length
-gene_len=$(spanr stat GENOMES/S288c/chr.sizes \
-              ../mrna-structure/gene-filter/genes.merge.yml |
-              tsv-filter -H -d, --str-ne chr:all |
-              tsv-select -d, -f 4 |
-              sed 1d |
-              paste -sd+ |
-              bc)
-
-# genome and gene snps
-genom_vcf=$(cat vcf/all.snp.tsv | tsv-uniq -f 1,2 | wc -l)
-gene_vcf=$(cat vcf/gene.snp.tsv | tsv-uniq -f 1,2 | wc -l)
-
-echo -e "$genom_len\t$gene_len\t$genom_vcf\t$gene_vcf"
-```
-
 ### Split strains from 1002 genomes project into subpopulations
 
 - Ecological origins
