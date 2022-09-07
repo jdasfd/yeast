@@ -67,14 +67,62 @@ egaz prepseq \
 gzip -dcf download/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz > GENOMES/S288c/chr.gff
 gzip -dcf download/BY4742_Toronto_2012.gff.gz > GENOMES/BY4742/chr.gff
 
-# prep assembly
-egaz template \
-    download \
-    --prep -o GENOMES \
-    --min 1000 --about 1_000_000 \
-    -v --repeatmasker "--species Fungi --parallel 12"
+### Use blast to get genome location of genes
 
-bash GENOMES/0_prep.sh
+```bash
+# S288c database was used in pars
+# make sure you have already completed the most part of pars
+# otherwise using the followed command
+
+# formatdb
+# cd ~/data/mrna-structure/blast
+# makeblastdb -dbtype nucl -in S288c.fa -parse_seqids
+
+cd ~/data/yeast/gene
+
+# blast every transcripts against genome
+blastn -task blastn -evalue 1e-3 -num_threads 4 -num_descriptions 10 -num_alignments 10 -outfmt 0 \
+    -dust yes -soft_masking true \
+    -db ~/data/mrna-structure/blast/S288c.fa -query gene.mut.fa -out gene.blast
+
+# identity 90 could give out the most gene wanted
+perl ~/Scripts/pars/blastn_transcript.pl -i 70 -f gene.blast -m 0
+
+cat gene.blast.tsv | wc -l
+#19
+# LSM1 and VMA7 excluded
+# the reason was that 2 genes were not aligned in full length
+
+# add those part manually according to gene.blast
+echo -e "LSM1\t150\tX\t187438\t187587\t-" >> gene.blast.tsv
+echo -e "VMA21\t150\tVII\t698635\t698784\t+" >> gene.blast.tsv
+```
+
+### Get random mutations of 21 genes in vcf format
+
+There are few things should be considered:
+
+1. The file format of 1002 genome project VCF is [VCF v4.1](http://samtools.github.io/hts-specs/VCFv4.1.pdf). In this format, all  info of mutations was recorded on the forward strand of reference yeast genome R64.
+
+2. In the article, each position of mutations was recorded according to the coding region. So after I researched on the [genome browser](https://browse.yeastgenome.org/), it should be noticed that the blast result should be relocated on the forward strand.
+
+In other words, for the forward strand (+), the genome location is alright, but it should be upside down for the reverse strand (-).
+
+- Forward strand: left 5' -> right 3'.
+- Reverse strand: right 5' -> left 3'.
+
+```bash
+cd ~/data/yeast
+
+# a script converting results to vcf format
+perl scripts/loc2vcf.pl -b gene/gene.blast.tsv \
+    -t info/fit.tsv |
+    tsv-sort -nk 2,2 \
+    > vcf/random.snp.vcf
+
+cat vcf/random.snp.vcf | wc -l
+#8341
+# the same number of info/fit.tsv
 ```
 
 ## SNP in wild population
