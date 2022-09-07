@@ -194,14 +194,78 @@ done
 #0
 ```
 
+## Genome alignment
+
+### Download genomes
+
+```bash
+mkdir -p ~/data/yeast/download
+cd ~/data/yeast/download
+
+# BY4742 strain was used in the article
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.fsa.gz
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.gff.gz
+
+# S288c - reference genome
+aria2c -c ftp://ftp.ensembl.org/pub/release-105/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz
+aria2c -c ftp://ftp.ensembl.org/pub/release-105/gff3/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz
+```
+
+### Prepare sequences
+
+```bash
+cd ~/data/yeast
+
+# reference
+egaz prepseq \
+    download/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz \
+    --repeatmasker "--species Fungi --gff --parallel 12" \
+    --min 1000 --gi -v \
+    -o GENOMES/S288c
+
+egaz prepseq \
+    download/BY4742_Toronto_2012.fsa.gz \
+    --repeatmasker "--species Fungi --gff --parallel 12" \
+    --min 1000 --gi -v \
+    -o GENOMES/BY4742
+
+gzip -dcf download/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz > GENOMES/S288c/chr.gff
+gzip -dcf download/BY4742_Toronto_2012.gff.gz > GENOMES/BY4742/chr.gff
+
+# prep assembly
+egaz template \
+    download \
+    --prep -o GENOMES \
+    --min 1000 --about 1_000_000 \
+    -v --repeatmasker "--species Fungi --parallel 12"
+
+bash GENOMES/0_prep.sh
+```
+
+### Chi-square tests
+
 ```bash
 # genome length
-faops size ../mrna-structure/blast/S288c.fa |
-    tsv-filter --str-ne 1:Mito |
-    tsv-select -f 2 |
-    paste -sd+ |
-    bc
-#12071326
+genom_len=$(cat GENOMES/S288c/chr.sizes |
+                tsv-filter --str-ne 1:Mito |
+                tsv-select -f 2 |
+                paste -sd+ |
+                bc)
+
+# gene length
+gene_len=$(spanr stat GENOMES/S288c/chr.sizes \
+              ../mrna-structure/gene-filter/genes.merge.yml |
+              tsv-filter -H -d, --str-ne chr:all |
+              tsv-select -d, -f 4 |
+              sed 1d |
+              paste -sd+ |
+              bc)
+
+# genome and gene snps
+genom_vcf=$(cat vcf/all.snp.tsv | tsv-uniq -f 1,2 | wc -l)
+gene_vcf=$(cat vcf/gene.snp.tsv | tsv-uniq -f 1,2 | wc -l)
+
+echo -e "$genom_len\t$gene_len\t$genom_vcf\t$gene_vcf"
 ```
 
 ### Split strains from 1002 genomes project into subpopulations
