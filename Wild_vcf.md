@@ -29,21 +29,75 @@ brew install wang-q/tap/tsv-utils
 brew install brewsci/bio/vt
 ```
 
-## Genome alignment
+## Random mutations in the article
 
-### Download genomes
+### Extract 21 gene names and sequences
+
+According to SGD, there is system name and standard name for one same gene. The standard name was adopted in the article. When it comes to different processes, two names were respectively useful in different aspects.
+
+After that, the sequences were extracted from the mutation info.
+
+- Gene names
 
 ```bash
-mkdir -p ~/data/yeast/download
-cd ~/data/yeast/download
+cd ~/data/yeast
+mkdir gene
 
-# BY4742 strain was used in the article
-wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.fsa.gz
-wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.gff.gz
+perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM3_ESM.xlsx |
+    sed '1d' |
+    cut -d, -f 1 \
+    > gene/stdname.lst
 
-# S288c - reference genome
-aria2c -c ftp://ftp.ensembl.org/pub/release-105/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz
-aria2c -c ftp://ftp.ensembl.org/pub/release-105/gff3/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz
+rm gene/std_sysname.tsv
+
+for gene in $(cat gene/stdname.lst)
+do
+    echo "==> ${gene}"
+    cat ../mrna-structure/sgd/saccharomyces_cerevisiae.gff |
+        grep "${gene}" |
+        cut -f 9 | 
+        perl -nla -F';' -e '
+        $F[1] =~ /Name=(.*)/ or next;
+        $name = $1;
+        $F[2] =~ /gene=(.*)/ or next;
+        $gene = $1;
+        print "$name\t$gene";
+        ' \
+        >> gene/std_sysname.tsv
+done
+
+wc -l gene/std_sysname.tsv
+#34 gene/std_sysname.tsv
+# more than 21 genes, need filtering
+
+cat gene/std_sysname.tsv |
+    tsv-select -f 2,1 |
+    tsv-join --filter-file gene/stdname.lst \
+    --key-fields 1 \
+    > tmp.tsv && mv tmp.tsv gene/std_sysname.tsv
+
+wc -l gene/std_sysname.tsv
+#21 gene/std_sysname.tsv
+# alright
+
+cat gene/std_sysname.tsv |
+    tsv-select -f 2 \
+    > gene/sysname.lst
+
+# average fitness of muts were not all available
+# remove those #DIV/0! in excel
+perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
+    --sheet "Fig. 2abc" |
+    sed '1d' |
+    tsv-select -d, -f 1,3,2 |
+    mlr --icsv --otsv cat |
+    tr '-' '\t' |
+    tsv-filter --not-iregex 5:# \
+    > info/fit.tsv
+
+# count all mutations with available fitness data
+cat info/fit.tsv | wc -l
+#8341
 ```
 
 ### Prepare sequences
