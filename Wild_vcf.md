@@ -205,14 +205,19 @@ cat vcf/random.snp.vcf | wc -l
 
 ## SNP in wild population
 
-### All SNPs extracted from the vcf
+### All SNPs in the whole genome
 
 All information were included in a tsv: chr, pos, ALT, REF, freq, num_ALT, num_all.
 
 ```bash
 cd ~/data/yeast
 
+# echo 1573791+82429+2147 | bc
+# all equations could be validated by the command
+
 # get all SNPs
+# bcftools norm to split mutations within a position
+# vt decompose_blocksub will automatically change them to 1 base
 bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
     bcftools norm -m -both |
     vt decompose_blocksub - |
@@ -221,32 +226,47 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
     '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
     -o vcf/all.snp.tsv
 
-# the number of all SNPs
-cat vcf/all.snp.tsv | wc -l
-#1745090
+# multimuts snp
+cat vcf/all.snp.tsv | tsv-summarize -g 1,2 --count | tsv-summarize -g 3 --count
+#1       1573791
+#2       82429
+#3       2147
 
+# genome absolute positions with mutation(s)
 for i in {1..3}
 do
     cat vcf/all.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
 done
-#1658367
-#84576
+#1658367 (1573791+82429+2147)
+#84576 (82429+2147)
 #2147
 
-# freq >= 0.05
-cat vcf/all.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
-#139181
+# the number of all SNPs
+cat vcf/all.snp.tsv | wc -l
+#1745090 (1658367+84576+2147 = 1573791+82429*2+2147*3)
 
-for i in {0..3}
+# freq >= 0.05
+cat vcf/all.snp.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 1,2 --count |
+    tsv-summarize -g 3 --count
+#1       137704
+#2       731
+#3       5
+
+for i in {1..3}
 do
     cat vcf/all.snp.tsv |
         tsv-filter --ge 5:0.05 |
         tsv-uniq -f 1,2 -a $i |
         wc -l
 done
-#138440
-#736
+#138440 (137704+731+5)
+#736 (731+5)
 #5
+
+cat vcf/all.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
+#139181 (138440+736+5 = 137704+731*2+5*3)
 ```
 
 ### SNPs in gene regions
@@ -254,8 +274,7 @@ done
 ```bash
 cd ~/data/yeast
 
-# 1-based gene region in bed
-# vcf based on the forward strain
+# all gene regions added to 1-based bed format
 cat ../mrna-structure/gene-filter/gene_list.csv |
     perl -nla -F, -e '
     BEGIN {
@@ -284,40 +303,112 @@ cat ../mrna-structure/gene-filter/gene_list.csv |
     $end = $3;
     print "$chr\t$begin\t$end";
     ' \
-    > vcf/gene.bed
+    > gene/gene_all.bed
 
-bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -R vcf/gene.bed |
+cat gene/gene_all.bed | wc -l
+#6579
+# 6579 genes in total
+
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 6 -R gene/gene_all.bed |
     bcftools norm -m -both |
     vt decompose_blocksub - |
     bcftools view -V indels |
     bcftools query -f \
     '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
-    -o vcf/gene.snp.tsv
+    -o vcf/gene_all.snp.tsv
 
-cat vcf/gene.snp.tsv | wc -l
-#1120343
+cat vcf/gene_all.snp.tsv |
+    tsv-summarize -g 1,2 --count |
+    tsv-summarize -g 3 --count
+#1       1027584
+#2       45004
+#3       917
 
 for i in {1..3}
 do
-    cat vcf/gene.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
+    cat vcf/gene_all.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
 done
-#1073505
-#45921
+#1073505 (1027584+45004+917)
+#45921 (45004+917)
 #917
 
-cat vcf/gene.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
-#82941
+cat vcf/gene_all.snp.tsv | wc -l
+#1120343 (1073505+45921+917 = 1027584+45004*2+917*3)
+
+# freq >= 0.05
+cat vcf/gene_all.snp.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 1,2 --count |
+    tsv-summarize -g 3 --count
+#1       82319
+#2       311
 
 for i in {1..3}
 do
-    cat vcf/gene.snp.tsv |
+    cat vcf/gene_all.snp.tsv |
         tsv-filter --ge 5:0.05 |
         tsv-uniq -f 1,2 -a $i |
         wc -l
 done
-#82630
-#311
+#82630 (82319+311+0)
+#311 (311+0)
 #0
+
+cat vcf/gene_all.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
+#82941 (82630+311+0 = 82319+311*2+0*3)
+```
+
+### SNPs not in gene regions
+
+```bash
+cat vcf/all.snp.tsv | tsv-join -k 1,2,3,4 -e \
+    -f vcf/gene_all.snp.tsv \
+    > vcf/not_gene.snp.tsv
+
+cat vcf/not_gene.snp.tsv |
+    tsv-summarize -g 1,2 --count |
+    tsv-summarize -g 3 --count
+#1       546207
+#2       37425
+#3       1230
+
+for i in {1..3}
+do
+    cat vcf/not_gene.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
+done
+#584862 (546207+37425+1230)
+#38655 (37425+1230)
+#1230
+
+cat vcf/not_gene.snp.tsv | wc -l
+#624747 (1073505+45921+917 = 1027584+45004*2+917*3)
+
+echo 1120343+624747 | bc
+#1745090
+# all.snp.tsv was seperated into 2 parts
+
+# freq >= 0.05
+cat vcf/not_gene.snp.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 1,2 --count |
+    tsv-summarize -g 3 --count
+#1       55385
+#2       420
+#3       5
+
+for i in {1..3}
+do
+    cat vcf/not_gene.snp.tsv |
+        tsv-filter --ge 5:0.05 |
+        tsv-uniq -f 1,2 -a $i |
+        wc -l
+done
+#55810 (55385+420+5)
+#425 (420+5)
+#5
+
+cat vcf/not_gene.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
+#56240 (55810+425+5 = 55385+420*2+5*3)
 ```
 
 ### SNPs in selected 21 genes
@@ -351,15 +442,52 @@ cat gene/gene.blast.tsv |
           my $chr = $roman{$F[2]};
           print "chromosome$chr\t$F[3]\t$F[4]";
      ' \
-     > vcf/region.1based.bed
+     > gene/gene_21.bed
 
-bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -R vcf/region.1based.bed |
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 6 -R gene/gene_21.bed |
     bcftools norm -m -both |
     vt decompose_blocksub - |
     bcftools view -V indels |
     bcftools query -f \
     '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
     -o vcf/gene_21.snp.tsv
+
+cat vcf/gene_21.snp.tsv |
+    tsv-summarize -g 1,2 --count |
+    tsv-summarize -g 3 --count
+#1       286
+#2       10
+
+for i in {1..3}
+do
+    cat vcf/gene_21.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
+done
+#296 (286+10+0)
+#10 (10+0)
+#0
+
+cat vcf/gene_21.snp.tsv | wc -l
+#306 (296+10+0 = 286+10*2+0*3)
+
+cat vcf/gene_21.snp.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 1,2 --count |
+    tsv-summarize -g 3 --count
+#1       22
+
+for i in {1..3}
+do
+    cat vcf/gene_21.snp.tsv |
+        tsv-filter --ge 5:0.05 |
+        tsv-uniq -f 1,2 -a $i |
+        wc -l
+done
+#22
+#0
+#0
+
+cat vcf/gene_21.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
+#22
 ```
 
 ### Chi-square tests
