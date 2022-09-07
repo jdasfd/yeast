@@ -362,34 +362,47 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -R vcf/re
     -o vcf/gene_21.snp.tsv
 ```
 
+### Chi-square tests
+
+Check if there is any differences between regions.
+
 ```bash
-# bcftools required 1-based bed for snp filtering
-cat gene/gene.blast.tsv |
-     perl -nla -F"\t" -e '
-          BEGIN {
-              our %roman = (
-                  "XVI"   => 16,
-                  "XV"    => 15,
-                  "XIV"   => 14,
-                  "XIII"  => 13,
-                  "XII"   => 12,
-                  "XI"    => 11,
-                  "X"     => 10,
-                  "IX"    => 9,
-                  "VIII"  => 8,
-                  "VII"   => 7,
-                  "VI"    => 6,
-                  "V"     => 5,
-                  "IV"    => 4,
-                  "III"   => 3,
-                  "II"    => 2,
-                  "I"     => 1
-              );
-          }
-          my $chr = "chromosome" . $roman{$F[2]};
-          print "$chr\t$F[3]\t$F[4]";
-     ' \
-     > vcf/gene_21.bed
+bash ~/data/yeast/scripts/chi.sh
+```
+
+Result:
+
+```txt
+==> genome vs gene
+         [,1]    [,2]
+[1,] 12071326 8813103
+[2,]  1658367 1073505
+
+        Pearson's Chi-squared test with Yates' continuity correction
+
+data:  x
+X-squared = 8369.9, df = 1, p-value < 2.2e-16
+
+==> gene vs other
+        [,1]    [,2]
+[1,] 8813103 3258223
+[2,] 1073505  584862
+
+        Pearson's Chi-squared test with Yates' continuity correction
+
+data:  x
+X-squared = 49545, df = 1, p-value < 2.2e-16
+
+==> gene vs 21
+        [,1] [,2]
+[1,] 8813103 3138
+[2,] 1073505  296
+
+        Pearson's Chi-squared test with Yates' continuity correction
+
+data:  x
+X-squared = 17.542, df = 1, p-value = 2.81e-05
+
 ```
 
 ## Genome alignment
