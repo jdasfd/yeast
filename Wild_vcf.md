@@ -593,8 +593,8 @@ cat random.wild.snp.tsv |
 cd ~/data/yeast/vcf
 
 cat random.wild.snp.tsv |
-    tsv-summarize -g 6 --mean 5 --median 5 |
-    sed '1itype\tfit_mean\tfit_median' |
+    tsv-summarize -g 6 --mean 5 --median 5 --count |
+    sed '1itype\tfit_mean\tfit_median\tcount' |
     mlr --itsv --omd cat
 
 cat random.wild.snp.tsv |
@@ -728,10 +728,10 @@ Rscript -e '
 ' ../results/change.high.tsv
 ```
 
-| type                   | fit_mean       | fit_median    |
-|------------------------|----------------|---------------|
-| Nonsynonymous_mutation | 0.988545219123 | 0.98948772825 |
-| Synonymous_mutation    | 0.987720205444 | 0.988143842   |
+| type                   | fit_mean       | fit_median    | count |
+|------------------------|----------------|---------------|-------|
+| Nonsynonymous_mutation | 0.988545219123 | 0.98948772825 | 130   |
+| Synonymous_mutation    | 0.987720205444 | 0.988143842   | 152   |
 
 ## Split strains from 1002 genomes project into subpopulations
 
