@@ -202,8 +202,29 @@ cat vcf/random.snp.tsv | wc -l
 #8341
 # the same number of info/fit.tsv
 
-cat vcf/random.snp.tsv |
-    s
+# diff fit
+cat vcf/random.snp.tsv | tsv-filter --ge 5:1.01 > vcf/random.up.tsv
+cat vcf/random.snp.tsv | tsv-filter --le 5:0.99 > vcf/random.down.tsv
+cat vcf/random.snp.tsv | tsv-filter --gt 5:0.99 --lt 5:1.01 > vcf/random.neither.tsv
+
+for change in {up,down,neither}
+do
+    echo "==> fitness ${change}"
+    cat vcf/random.${change}.tsv |
+        tsv-summarize -g 6 --count
+done
+
+#==> fitness up
+#Synonymous_mutation     15
+#Nonsynonymous_mutation  61
+#==> fitness down
+#Nonsynonymous_mutation  3669
+#Synonymous_mutation     1043
+#Nonsense_mutation       143
+#==> fitness neither
+#Nonsynonymous_mutation  2576
+#Synonymous_mutation     808
+#Nonsense_mutation       26
 ```
 
 ## SNP in wild population
@@ -585,33 +606,132 @@ cat random.wild.snp.tsv |
     sed '1itype\tgene\tfit\tfreq' \
     > ../results/wild.tsv
 
+cat random.wild.snp.tsv |
+    tsv-filter --ge 8:0.05 |
+    tsv-select -f 6,7,5,8 |
+    perl -nla -e '
+        print join("\t",@F) if $F[0] =~ s/^Non.+$/N_mut/;
+        print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
+    ' |
+    sed '1itype\tgene\tfit\tfreq' \
+    > ../results/wild.high.tsv
+
 Rscript -e '
     library(ggplot2)
     library(readr)
     library(plyr)
     args <- commandArgs(T)
     wild <- read_tsv(args[1], show_col_types = FALSE)
-    wildv <- ddply(wild, "type", summarise, grp.mean = mean(fit))
+    wildv <- ddply(wild, "type", summarise, grp.median = median(fit))
     p <- ggplot(wild, aes(x = fit, fill = type)) +
          geom_histogram(binwidth = 0.0025, alpha = 0.5, position = "identity") +
-         geom_vline(data = wildv, aes(xintercept = grp.mean, color = type), linetype = "dashed")
+         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
     ggsave(p, height = 6, width = 6, file = "../results/wild.all.fit.pdf")
 ' ../results/wild.tsv
 
 Rscript -e '
     library(ggplot2)
     library(readr)
-    library(gridExtra)
+    library(plyr)
     args <- commandArgs(T)
     wild <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(wild, aes(x = fit, fill = type)) +
-         geom_histogram(alpha = 0.5, position = "identity") +
-         facet_wrap(~gene, nrow = 6)
-    ggsave(p, height = 15, width = 15, file = "../results/wild.gene.fit.pdf")
+    wildv <- ddply(wild, "type", summarise, grp.median = median(freq))
+    p <- ggplot(wild, aes(x = freq, fill = type)) +
+         geom_histogram(binwidth = 0.05, alpha = 0.5, position = "identity") +
+         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
+    ggsave(p, height = 6, width = 6, file = "../results/wild.all.freq.pdf")
 ' ../results/wild.tsv
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    library(plyr)
+    args <- commandArgs(T)
+    wild <- read_tsv(args[1], show_col_types = FALSE)
+    wildv <- ddply(wild, "type", summarise, grp.median = median(fit))
+    p <- ggplot(wild, aes(x = fit, fill = type)) +
+         geom_histogram(binwidth = 0.0025, alpha = 0.5, position = "identity") +
+         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
+    ggsave(p, height = 6, width = 6, file = "../results/wild.high.fit.pdf")
+' ../results/wild.high.tsv
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    library(plyr)
+    args <- commandArgs(T)
+    wild <- read_tsv(args[1], show_col_types = FALSE)
+    wildv <- ddply(wild, "type", summarise, grp.median = median(freq))
+    p <- ggplot(wild, aes(x = freq, fill = type)) +
+         geom_histogram(binwidth = 0.05, alpha = 0.5, position = "identity") +
+         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
+    ggsave(p, height = 6, width = 6, file = "../results/wild.high.freq.pdf")
+' ../results/wild.high.tsv
+
+echo -e "type\tfit\tfreq" > ../results/change.tsv
+
+for change in {up,down,neither}
+do
+    echo "==> fitness ${change}"
+    cat random.wild.snp.tsv |
+        tsv-join -k 1,2,3,4 -f random.${change}.tsv |
+        tsv-select -f 5,8 |
+        awk -v var=${change} '{print (var "\t" $0)}' \
+        >> ../results/change.tsv
+done
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    library(plyr)
+    args <- commandArgs(T)
+    wild <- read_tsv(args[1], show_col_types = FALSE)
+    wildv <- ddply(wild, "type", summarise, grp.median = median(freq))
+    p <- ggplot(wild, aes(x = freq, fill = type)) +
+         geom_histogram(binwidth = 0.05, alpha = 0.5, position = "identity") +
+         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
+    plm <- ggplot(wild, aes(x = freq, y = fit)) +
+           geom_point() +
+           geom_smooth(method = "lm")
+    ggsave(p, height = 6, width = 6, file = "../results/change.pdf")
+    ggsave(plm, height = 6, width = 6, file = "../results/lm.pdf")
+' ../results/change.tsv
+
+echo -e "type\tfit\tfreq" > ../results/change.high.tsv
+
+for change in {up,down,neither}
+do
+    echo "==> fitness ${change}"
+    cat random.wild.snp.tsv |
+        tsv-join -k 1,2,3,4 -f random.${change}.tsv |
+        tsv-select -f 5,8 |
+        tsv-filter --ge 2:0.05 |
+        awk -v var=${change} '{print (var "\t" $0)}' \
+        >> ../results/change.high.tsv
+done
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    library(plyr)
+    args <- commandArgs(T)
+    wild <- read_tsv(args[1], show_col_types = FALSE)
+    wildv <- ddply(wild, "type", summarise, grp.median = median(freq))
+    p <- ggplot(wild, aes(x = freq, fill = type)) +
+         geom_histogram(binwidth = 0.05, alpha = 0.5, position = "identity") +
+         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
+    plm <- ggplot(wild, aes(x = freq, y = fit)) +
+           geom_point() +
+           geom_smooth(method = "lm")
+    ggsave(p, height = 6, width = 6, file = "../results/change.high.pdf")
+    ggsave(plm, height = 6, width = 6, file = "../results/lm.high.pdf")
+' ../results/change.high.tsv
 ```
 
-### 
+| type                   | fit_mean       | fit_median    |
+|------------------------|----------------|---------------|
+| Nonsynonymous_mutation | 0.988545219123 | 0.98948772825 |
+| Synonymous_mutation    | 0.987720205444 | 0.988143842   |
 
 ## Split strains from 1002 genomes project into subpopulations
 
@@ -691,6 +811,24 @@ cd ~/data/yeast/vcf/group
 parallel -j 4 " \
     bcftools index --threads 3 {} \
 " ::: $(ls *.bcf)
+
+for group in $(cat ../../isolates/group.lst)
+do
+    echo "==> ${group}"
+
+    bcftools view 1011Matrix.${group}.bcf -Ov \
+        --threads 6 -R ../../gene/gene_21.bed |
+        bcftools norm -m -both |
+        vt decompose_blocksub - |
+        bcftools view -V indels |
+        bcftools query -f \
+        '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | 
+        tsv-filter --ne 7:0 |
+        tsv-filter --ne 5:0 \
+        > ../${group}.snp.tsv
+done
+```
+
 ## Genome alignment
 
 ### Download genomes
