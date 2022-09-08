@@ -598,6 +598,18 @@ cat random.wild.snp.tsv |
     mlr --itsv --omd cat
 
 cat random.wild.snp.tsv |
+    tsv-filter --ge 8:0.05 |
+    tsv-summarize -g 6 --mean 5 --median 5 --count |
+    sed '1itype\tfit_mean\tfit_median\tcount' |
+    mlr --itsv --omd cat
+
+cat random.wild.snp.tsv |
+    tsv-filter --ge 8:0.1 |
+    tsv-summarize -g 6 --count |
+    sed '1itype\tcount' |
+    mlr --itsv --omd cat
+
+cat random.wild.snp.tsv |
     tsv-select -f 6,7,5,8 |
     perl -nla -e '
         print join("\t",@F) if $F[0] =~ s/^Non.+$/N_mut/;
@@ -732,6 +744,20 @@ Rscript -e '
 |------------------------|----------------|---------------|-------|
 | Nonsynonymous_mutation | 0.988545219123 | 0.98948772825 | 130   |
 | Synonymous_mutation    | 0.987720205444 | 0.988143842   | 152   |
+
+High freq (>= 0.05):
+
+| type                   | fit_mean       | fit_median    | count |
+|------------------------|----------------|---------------|-------|
+| Synonymous_mutation    | 0.985455825819 | 0.98603116925 | 13    |
+| Nonsynonymous_mutation | 0.988684188175 | 0.990983907   | 7     |
+
+Freq > 0.1 count:
+
+| type                   | count |
+|------------------------|-------|
+| Synonymous_mutation    | 9     |
+| Nonsynonymous_mutation | 2     |
 
 ## Split strains from 1002 genomes project into subpopulations
 
