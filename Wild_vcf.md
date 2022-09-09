@@ -453,38 +453,44 @@ Check if there is any differences between regions.
 bash ~/data/yeast/scripts/chi.sh
 ```
 
-Result:
+Result on the screen:
 
 ```txt
 ==> genome vs gene
-         [,1]    [,2]
-[1,] 12071326 8813103
-[2,]  1658367 1073505
+        [,1]      [,2]
+[1,] 1073505 0.7300857
+[2,]  584862 0.2699143
+[1] 0.6473266
+[1] 0.3526734
 
-        Pearson's Chi-squared test with Yates' continuity correction
+        Chi-squared test for given probabilities
 
 data:  x
-X-squared = 8369.9, df = 1, p-value < 2.2e-16
+X-squared = 57639, df = 1, p-value < 2.2e-16
 
 ==> gene vs other
-        [,1]    [,2]
-[1,] 8813103 3258223
-[2,] 1073505  584862
+       [,1]      [,2]
+[1,] 584862 0.3697021
+[2,] 488643 0.6302979
+[1] 0.5448153
+[1] 0.4551847
 
-        Pearson's Chi-squared test with Yates' continuity correction
+        Chi-squared test for given probabilities
 
 data:  x
-X-squared = 49545, df = 1, p-value < 2.2e-16
+X-squared = 141268, df = 1, p-value < 2.2e-16
 
 ==> gene vs 21
-        [,1] [,2]
-[1,] 8813103 3138
-[2,] 1073505  296
+        [,1]         [,2]
+[1,]     296 0.0003560607
+[2,] 1073209 0.9996439393
+[1] 0.0002757323
+[1] 0.9997243
 
-        Pearson's Chi-squared test with Yates' continuity correction
+        Chi-squared test for given probabilities
 
 data:  x
-X-squared = 17.542, df = 1, p-value = 2.81e-05
+X-squared = 19.461, df = 1, p-value = 1.027e-05
 
 ```
 
