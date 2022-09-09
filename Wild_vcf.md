@@ -499,6 +499,7 @@ X-squared = 19.461, df = 1, p-value = 1.027e-05
 ```bash
 cd ~/data/yeast/vcf
 
+# muts exist or not in the wild group
 cat random.snp.tsv |
     tsv-join -k 1,2,3,4 \
     -f gene_21.snp.tsv -a 5,6,7 \
@@ -509,20 +510,36 @@ cat random.snp.tsv |
     -f gene_21.snp.tsv -e \
     > random.not_wild.snp.tsv
 
-cat random.wild.snp.tsv |
-    tsv-summarize -g 1,2 --count |
-    tsv-summarize -g 3 --count
-#1       262
-#2       10
+bash ../scripts/vcf_num.sh random.wild.snp.tsv
 
-cat random.wild.snp.tsv |
-    tsv-filter --ge 8:0.05 |
-    tsv-summarize -g 1,2 --count |
-    tsv-summarize -g 3 --count
-#1       20
+bash ../scripts/vcf_num.sh random.not_wild.snp.tsv
 ```
 
+in the wild:
+
+| Mut        | Num |
+|------------|-----|
+| All        | 282 |
+| Pos        | 272 |
+| One_SNP    | 262 |
+| Two_SNPs   | 10  |
+| Three_SNPs |     |
+
+not in the wild:
+
+| Mut        | Num  |
+|------------|------|
+| All        | 8059 |
+| Pos        | 3047 |
+| One_SNP    | 227  |
+| Two_SNPs   | 628  |
+| Three_SNPs | 2192 |
+
 ### Statistical results of mutations
+
+There are questions for solving:
+
+1. 
 
 ```bash
 cd ~/data/yeast/vcf
