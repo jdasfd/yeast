@@ -34,11 +34,17 @@ echo "==> genome vs gene"
 echo -e "$genom_len\t$gene_len\t$genom_vcf\t$gene_vcf" |
     parallel --colsep '\t' -j 1 -k '
         Rscript -e "
-            x <- matrix(c({1},{3},{2},{4}), ncol = 2)
+            d <- {3}-{4}
+            x <- c({4},d)
+            a <- {2}/{1}
+            b <- 1-({2}/{1})
+            y <- matrix(c(x, a, b), nrow = 2)
             old.warn <- options()$warn
             options(warn = -1)
-            x
-            chisq.test(x)
+            y
+            {4}/{3}
+            1-{4}/{3}
+            chisq.test(x, p = c(a, b))
         "
 '
 
@@ -46,11 +52,17 @@ echo "==> gene vs other"
 echo -e "$gene_len\t$other_len\t$gene_vcf\t$not_vcf" |
     parallel --colsep '\t' -j 1 -k '
         Rscript -e "
-            x <- matrix(c({1},{3},{2},{4}), ncol = 2)
+            d <- {3}-{4}
+            x <- c({4},d)
+            a <- {2}/{1}
+            b <- 1-({2}/{1})
+            y <- matrix(c(x, a, b), nrow = 2)
             old.warn <- options()$warn
             options(warn = -1)
-            x
-            chisq.test(x)
+            y
+            {4}/{3}
+            1-{4}/{3}
+            chisq.test(x, p = c(a, b))
         "
 '
 
@@ -58,10 +70,16 @@ echo "==> gene vs 21"
 echo -e "$gene_len\t$gene_21_len\t$gene_vcf\t$gene_21_vcf" |
     parallel --colsep '\t' -j 1 -k '
         Rscript -e "
-            x <- matrix(c({1},{3},{2},{4}), ncol = 2)
+            d <- {3}-{4}
+            x <- c({4},d)
+            a <- {2}/{1}
+            b <- 1-({2}/{1})
+            y <- matrix(c(x, a, b), nrow = 2)
             old.warn <- options()$warn
             options(warn = -1)
-            x
-            chisq.test(x)
+            y
+            {4}/{3}
+            1-{4}/{3}
+            chisq.test(x, p = c(a, b))
         "
 '
