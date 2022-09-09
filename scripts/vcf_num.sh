@@ -77,6 +77,8 @@ echo
 
 echo "==> Final result"
 
+echo -e "| Mut | Num |"
+echo -e "| --- | --- |"
 echo -e "| All | ${all1} |"
 echo -e "| Pos | ${pos} |"
 echo -e "| One_SNP | ${one} |"
