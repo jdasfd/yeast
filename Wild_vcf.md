@@ -236,9 +236,6 @@ All information were included in a tsv: chr, pos, ALT, REF, freq, num_ALT, num_a
 ```bash
 cd ~/data/yeast
 
-# echo 1573791+82429+2147 | bc
-# all equations could be validated by the command
-
 # get all SNPs
 # bcftools norm to split mutations within a position
 # vt decompose_blocksub will automatically change them to 1 base
@@ -250,48 +247,30 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
     '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
     -o vcf/all.snp.tsv
 
-# multimuts snp
-cat vcf/all.snp.tsv | tsv-summarize -g 1,2 --count | tsv-summarize -g 3 --count
-#1       1573791
-#2       82429
-#3       2147
+bash scripts/vcf_num.sh vcf/all.snp.tsv
 
-# genome absolute positions with mutation(s)
-for i in {1..3}
-do
-    cat vcf/all.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
-done
-#1658367 (1573791+82429+2147)
-#84576 (82429+2147)
-#2147
+cat vcf/all.snp.tsv | tsv-filter --ge 5:0.05 > vcf/all.high.snp.tsv
 
-# the number of all SNPs
-cat vcf/all.snp.tsv | wc -l
-#1745090 (1658367+84576+2147 = 1573791+82429*2+2147*3)
-
-# freq >= 0.05
-cat vcf/all.snp.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 1,2 --count |
-    tsv-summarize -g 3 --count
-#1       137704
-#2       731
-#3       5
-
-for i in {1..3}
-do
-    cat vcf/all.snp.tsv |
-        tsv-filter --ge 5:0.05 |
-        tsv-uniq -f 1,2 -a $i |
-        wc -l
-done
-#138440 (137704+731+5)
-#736 (731+5)
-#5
-
-cat vcf/all.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
-#139181 (138440+736+5 = 137704+731*2+5*3)
+bash scripts/vcf_num.sh vcf/all.high.snp.tsv
 ```
+
+| Mut        | Num     |
+|------------|---------|
+| All        | 1745090 |
+| Pos        | 1658367 |
+| One_SNP    | 1573791 |
+| Two_SNPs   | 82429   |
+| Three_SNPs | 2147    |
+
+SNP that freq >= 0.05:
+
+| Mut        | Num    |
+|------------|--------|
+| All        | 139181 |
+| Pos        | 138440 |
+| One_SNP    | 137704 |
+| Two_SNPs   | 731    |
+| Three_SNPs | 5      |
 
 ### SNPs in gene regions
 
@@ -341,46 +320,30 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 6 -R gene/g
     '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
     -o vcf/gene_all.snp.tsv
 
-cat vcf/gene_all.snp.tsv |
-    tsv-summarize -g 1,2 --count |
-    tsv-summarize -g 3 --count
-#1       1027584
-#2       45004
-#3       917
+bash scripts/vcf_num.sh vcf/gene_all.snp.tsv
 
-for i in {1..3}
-do
-    cat vcf/gene_all.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
-done
-#1073505 (1027584+45004+917)
-#45921 (45004+917)
-#917
+cat vcf/gene_all.snp.tsv | tsv-filter --ge 5:0.05 > vcf/gene_all.high.snp.tsv
 
-cat vcf/gene_all.snp.tsv | wc -l
-#1120343 (1073505+45921+917 = 1027584+45004*2+917*3)
-
-# freq >= 0.05
-cat vcf/gene_all.snp.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 1,2 --count |
-    tsv-summarize -g 3 --count
-#1       82319
-#2       311
-
-for i in {1..3}
-do
-    cat vcf/gene_all.snp.tsv |
-        tsv-filter --ge 5:0.05 |
-        tsv-uniq -f 1,2 -a $i |
-        wc -l
-done
-#82630 (82319+311+0)
-#311 (311+0)
-#0
-
-cat vcf/gene_all.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
-#82941 (82630+311+0 = 82319+311*2+0*3)
+bash scripts/vcf_num.sh vcf/gene_all.high.snp.tsv
 ```
+
+| Mut        | Num     |
+|------------|---------|
+| All        | 1120343 |
+| Pos        | 1073505 |
+| One_SNP    | 1027584 |
+| Two_SNPs   | 45004   |
+| Three_SNPs | 917     |
+
+SNP that freq >= 0.05:
+
+| Mut        | Num   |
+|------------|-------|
+| All        | 82941 |
+| Pos        | 82630 |
+| One_SNP    | 82319 |
+| Two_SNPs   | 311   |
+| Three_SNPs |       |
 
 ### SNPs not in gene regions
 
@@ -391,51 +354,30 @@ cat vcf/all.snp.tsv | tsv-join -k 1,2,3,4 -e \
     -f vcf/gene_all.snp.tsv \
     > vcf/not_gene.snp.tsv
 
-cat vcf/not_gene.snp.tsv |
-    tsv-summarize -g 1,2 --count |
-    tsv-summarize -g 3 --count
-#1       546207
-#2       37425
-#3       1230
+bash scripts/vcf_num.sh vcf/not_gene.snp.tsv
 
-for i in {1..3}
-do
-    cat vcf/not_gene.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
-done
-#584862 (546207+37425+1230)
-#38655 (37425+1230)
-#1230
+cat vcf/not_gene.snp.tsv | tsv-filter --ge 5:0.05 > vcf/not_gene.high.snp.tsv
 
-cat vcf/not_gene.snp.tsv | wc -l
-#624747 (1073505+45921+917 = 1027584+45004*2+917*3)
-
-echo 1120343+624747 | bc
-#1745090
-# all.snp.tsv was seperated into 2 parts
-
-# freq >= 0.05
-cat vcf/not_gene.snp.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 1,2 --count |
-    tsv-summarize -g 3 --count
-#1       55385
-#2       420
-#3       5
-
-for i in {1..3}
-do
-    cat vcf/not_gene.snp.tsv |
-        tsv-filter --ge 5:0.05 |
-        tsv-uniq -f 1,2 -a $i |
-        wc -l
-done
-#55810 (55385+420+5)
-#425 (420+5)
-#5
-
-cat vcf/not_gene.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
-#56240 (55810+425+5 = 55385+420*2+5*3)
+bash scripts/vcf_num.sh vcf/not_gene.high.snp.tsv
 ```
+
+| Mut        | Num    |
+|------------|--------|
+| All        | 624747 |
+| Pos        | 584862 |
+| One_SNP    | 546207 |
+| Two_SNPs   | 37425  |
+| Three_SNPs | 1230   |
+
+SNP that freq >= 0.05:
+
+| Mut        | Num   |
+|------------|-------|
+| All        | 56240 |
+| Pos        | 55810 |
+| One_SNP    | 55385 |
+| Two_SNPs   | 420   |
+| Three_SNPs | 5     |
 
 ### SNPs in selected 21 genes
 
@@ -478,43 +420,30 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 6 -R gene/g
     '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
     -o vcf/gene_21.snp.tsv
 
-cat vcf/gene_21.snp.tsv |
-    tsv-summarize -g 1,2 --count |
-    tsv-summarize -g 3 --count
-#1       286
-#2       10
+bash scripts/vcf_num.sh vcf/gene_21.snp.tsv
 
-for i in {1..3}
-do
-    cat vcf/gene_21.snp.tsv | tsv-uniq -f 1,2 -a $i | wc -l
-done
-#296 (286+10+0)
-#10 (10+0)
-#0
+cat vcf/gene_21.snp.tsv | tsv-filter --ge 5:0.05 > vcf/gene_21.high.snp.tsv
 
-cat vcf/gene_21.snp.tsv | wc -l
-#306 (296+10+0 = 286+10*2+0*3)
-
-cat vcf/gene_21.snp.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 1,2 --count |
-    tsv-summarize -g 3 --count
-#1       22
-
-for i in {1..3}
-do
-    cat vcf/gene_21.snp.tsv |
-        tsv-filter --ge 5:0.05 |
-        tsv-uniq -f 1,2 -a $i |
-        wc -l
-done
-#22
-#0
-#0
-
-cat vcf/gene_21.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
-#22
+bash scripts/vcf_num.sh vcf/gene_21.high.snp.tsv
 ```
+
+| Mut        | Num |
+|------------|-----|
+| All        | 306 |
+| Pos        | 296 |
+| One_SNP    | 286 |
+| Two_SNPs   | 10  |
+| Three_SNPs |     |
+
+SNP that freq >= 0.05:
+
+| Mut        | Num |
+|------------|-----|
+| All        | 22  |
+| Pos        | 22  |
+| One_SNP    | 22  |
+| Two_SNPs   |     |
+| Three_SNPs |     |
 
 ### Chi-square tests
 
@@ -628,18 +557,8 @@ cat random.wild.snp.tsv |
     sed '1itype\tgene\tfit\tfreq' \
     > ../results/wild.high.tsv
 
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    library(plyr)
-    args <- commandArgs(T)
-    wild <- read_tsv(args[1], show_col_types = FALSE)
-    wildv <- ddply(wild, "type", summarise, grp.median = median(fit))
-    p <- ggplot(wild, aes(x = fit, fill = type)) +
-         geom_histogram(binwidth = 0.0025, alpha = 0.5, position = "identity") +
-         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
-    ggsave(p, height = 6, width = 6, file = "../results/wild.all.fit.pdf")
-' ../results/wild.tsv
+Rscript ../scripts/dis_fit.r \
+    -f ../results/wild.tsv -b 0.0025 -o ../results/wild.all.fit.pdf
 
 Rscript -e '
     library(ggplot2)
@@ -654,18 +573,8 @@ Rscript -e '
     ggsave(p, height = 6, width = 6, file = "../results/wild.all.freq.pdf")
 ' ../results/wild.tsv
 
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    library(plyr)
-    args <- commandArgs(T)
-    wild <- read_tsv(args[1], show_col_types = FALSE)
-    wildv <- ddply(wild, "type", summarise, grp.median = median(fit))
-    p <- ggplot(wild, aes(x = fit, fill = type)) +
-         geom_histogram(binwidth = 0.0025, alpha = 0.5, position = "identity") +
-         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
-    ggsave(p, height = 6, width = 6, file = "../results/wild.high.fit.pdf")
-' ../results/wild.high.tsv
+Rscript ../scripts/dis_fit.r \
+    -f ../results/wild.high.tsv -b 0.0025 -o ../results/wild.high.fit.pdf
 
 Rscript -e '
     library(ggplot2)
