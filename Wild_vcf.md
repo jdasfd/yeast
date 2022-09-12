@@ -863,77 +863,46 @@ Rscript -e '
 ```bash
 cd ~/data/yeast/vcf
 
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    args <- commandArgs(T)
-    data <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(data, aes(x = reorder(group, -num), y = num, fill = catgry)) +
-         geom_bar(stat="identity", position=position_dodge()) +
-         geom_text(aes(label = num), vjust=1.6, color="white",
-            position = position_dodge(0.9), size=3.5)+
-         scale_fill_brewer(palette="Paired") +
-         theme(axis.text.x = element_text(angle = 315))
-    ggsave(p, height = 6, width = 15, file = "../results/group.num.pdf")
-' ../results/group.num.tsv
+rm group.snp.tsv
 
-cat all.vcf.tsv | wc -l
-#819
-# totally 819 snps
+for group in $(cat ../isolates/group.lst)
+do
+    echo "==> ${group}"
+    cat ${group}.snp.tsv | awk -v group=${group} '{print ($0 "\t" group)}' \
+    >> group.snp.tsv
+done
 
-cat all.vcf.tsv | tsv-filter --ge 5:0.05 | wc -l
-#431
-# 431 snps population freq >= 0.05
+cat group.snp.tsv | wc -l
+#973
+# totally 973 snps (an snp could exist among multiple groups)
+
+cat group.snp.tsv | tsv-filter -H --ge AF:0.05 | wc -l
+#505
+# 505 snps population freq >= 0.05
 
 # uniq all snps
-cat all.vcf.tsv |
-    tsv-select -f 1,2,3,4 |
+cat group.snp.tsv |
+    tsv-select -H -f chr,pos,REF,ALT |
     tsv-uniq |
     wc -l
-#248 (8004-7756, right)
-# totally 248 snps found among wild groups
+#307
+# 307 snps among groups
 
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-select -f 1,2,3,4 |
+cat group.snp.tsv |
+    tsv-filter -H --ge AF:0.05 |
+    tsv-select -H -f chr,pos,REF,ALT |
     tsv-uniq |
     wc -l
-#112
-# totally 112 high freq (>= 0.05) snps found among groups
+#136
+# totally 136 high freq (>= 0.05) snps found among groups
 
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 11 --count |
-    tsv-join -f <(cat all.vcf.tsv | tsv-summarize -g 11 --count) -k 1 -a 2 |
-    tsv-sort -nk 3,3 -r |
-    sed '1igroup\thigh_freq\tall' |
+cat group.snp.tsv |
+    tsv-summarize -H -g chr,pos,REF,ALT,10 --count |
+    tsv-sort -r -nk 6,6 |
+    tsv-select -f 1,5,6 |
+    tsv-filter --ge 3:10 |
+    sed '1ichr\tgene\tgroup' |
     mlr --itsv --omd cat
-
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 11 --count |
-    awk '{print ($0 "\thigh_freq")}' |
-    sed '1igroup\tnum\tcatgry' > tmp &&
-cat all.vcf.tsv |
-    tsv-summarize -g 11 --count |
-    awk '{print ($0 "\tall")}' >> tmp &&
-mv tmp ../results/group.num.tsv
-
-# plot
-# need to change x axis
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    args <- commandArgs(T)
-    data <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(data, aes(x = reorder(group, -num), y = num, fill = catgry)) +
-         geom_bar(stat="identity", position=position_dodge()) +
-         geom_text(aes(label = num), vjust=1.6, color="white",
-            position = position_dodge(0.9), size=3.5)+
-         scale_fill_brewer(palette="Paired") +
-         theme(axis.text.x = element_text(angle = 315))
-    ggsave(p, height = 6, width = 15, file = "../results/group.num.pdf")
-' ../results/group.num.tsv
 ```
 
 ## Genome alignment
@@ -982,69 +951,6 @@ egaz template \
     -v --repeatmasker "--species Fungi --parallel 12"
 
 bash GENOMES/0_prep.sh
-```
-
-```bash
-mkdir ~/data/yeast/results
-cd ~/data/yeast/vcf
-
-cat all.vcf.tsv | wc -l
-#819
-# totally 819 snps
-
-cat all.vcf.tsv | tsv-filter --ge 5:0.05 | wc -l
-#431
-# 431 snps population freq >= 0.05
-
-# uniq all snps
-cat all.vcf.tsv |
-    tsv-select -f 1,2,3,4 |
-    tsv-uniq |
-    wc -l
-#248 (8004-7756, right)
-# totally 248 snps found among wild groups
-
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-select -f 1,2,3,4 |
-    tsv-uniq |
-    wc -l
-#112
-# totally 112 high freq (>= 0.05) snps found among groups
-
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 11 --count |
-    tsv-join -f <(cat all.vcf.tsv | tsv-summarize -g 11 --count) -k 1 -a 2 |
-    tsv-sort -nk 3,3 -r |
-    sed '1igroup\thigh_freq\tall' |
-    mlr --itsv --omd cat
-
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 11 --count |
-    awk '{print ($0 "\thigh_freq")}' |
-    sed '1igroup\tnum\tcatgry' > tmp &&
-cat all.vcf.tsv |
-    tsv-summarize -g 11 --count |
-    awk '{print ($0 "\tall")}' >> tmp &&
-mv tmp ../results/group.num.tsv
-
-# plot
-# need to change x axis
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    args <- commandArgs(T)
-    data <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(data, aes(x = reorder(group, -num), y = num, fill = catgry)) +
-         geom_bar(stat="identity", position=position_dodge()) +
-         geom_text(aes(label = num), vjust=1.6, color="white",
-            position = position_dodge(0.9), size=3.5)+
-         scale_fill_brewer(palette="Paired") +
-         theme(axis.text.x = element_text(angle = 315))
-    ggsave(p, height = 6, width = 15, file = "../results/group.num.pdf")
-' ../results/group.num.tsv
 ```
 
 - The numbers of subpopulations of an SNP
