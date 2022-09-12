@@ -636,7 +636,7 @@ cat ../results/all.tsv | wc -l
 #8173
 # echo 282+8059+1-169 | bc
 
-# plot script
+# plot fit script
 # mut type
 Rscript ../scripts/dis_fit.r \
     -f ../results/all.tsv -t type -b 0.0025 \
@@ -647,34 +647,24 @@ Rscript ../scripts/dis_fit.r \
     -f ../results/all.tsv -t exist -b 0.0025 \
     -o ../results/exist.fit.pdf
 
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    library(plyr)
-    args <- commandArgs(T)
-    wild <- read_tsv(args[1], show_col_types = FALSE)
-    wildv <- ddply(wild, "type", summarise, grp.median = median(freq))
-    p <- ggplot(wild, aes(x = freq, fill = type)) +
-         geom_histogram(binwidth = 0.05, alpha = 0.5, position = "identity") +
-         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
-    ggsave(p, height = 6, width = 6, file = "../results/wild.all.freq.pdf")
-' ../results/wild.tsv
-
+# 2 factors
 Rscript ../scripts/dis_fit.r \
-    -f ../results/wild.high.tsv -b 0.0025 -o ../results/wild.high.fit.pdf
+    -f ../results/all.tsv -t exist -b 0.0025 -s \
+    -o ../results/exist.split.fit.pdf
 
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    library(plyr)
-    args <- commandArgs(T)
-    wild <- read_tsv(args[1], show_col_types = FALSE)
-    wildv <- ddply(wild, "type", summarise, grp.median = median(freq))
-    p <- ggplot(wild, aes(x = freq, fill = type)) +
-         geom_histogram(binwidth = 0.05, alpha = 0.5, position = "identity") +
-         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
-    ggsave(p, height = 6, width = 6, file = "../results/wild.high.freq.pdf")
-' ../results/wild.high.tsv
+# muts exist among wild with freq
+cat random.wild.snp.tsv |
+    tsv-select -f 6,7,5,8 |
+    perl -nla -e '
+        print join("\t",@F) if $F[0] =~ s/^Nonsy.+$/N_mut/;
+        print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
+    ' |
+    sed '1itype\tgene\tfit\tfreq' \
+    > ../results/wild.tsv
+
+Rscript ../scripts/dis_freq.r \
+    -f ../results/wild.tsv -b 0.05 \
+    -o ../results/exist.freq.pdf
 
 echo -e "type\tfit\tfreq" > ../results/change.tsv
 
@@ -701,39 +691,9 @@ Rscript -e '
     plm <- ggplot(wild, aes(x = freq, y = fit)) +
            geom_point() +
            geom_smooth(method = "lm")
-    ggsave(p, height = 6, width = 6, file = "../results/change.pdf")
-    ggsave(plm, height = 6, width = 6, file = "../results/lm.pdf")
+    ggsave(p, height = 6, width = 6, file = "../results/change.freq.pdf")
+    ggsave(plm, height = 6, width = 6, file = "../results/change.freq.lm.pdf")
 ' ../results/change.tsv
-
-echo -e "type\tfit\tfreq" > ../results/change.high.tsv
-
-for change in {up,down,neither}
-do
-    echo "==> fitness ${change}"
-    cat random.wild.snp.tsv |
-        tsv-join -k 1,2,3,4 -f random.${change}.tsv |
-        tsv-select -f 5,8 |
-        tsv-filter --ge 2:0.05 |
-        awk -v var=${change} '{print (var "\t" $0)}' \
-        >> ../results/change.high.tsv
-done
-
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    library(plyr)
-    args <- commandArgs(T)
-    wild <- read_tsv(args[1], show_col_types = FALSE)
-    wildv <- ddply(wild, "type", summarise, grp.median = median(freq))
-    p <- ggplot(wild, aes(x = freq, fill = type)) +
-         geom_histogram(binwidth = 0.05, alpha = 0.5, position = "identity") +
-         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
-    plm <- ggplot(wild, aes(x = freq, y = fit)) +
-           geom_point() +
-           geom_smooth(method = "lm")
-    ggsave(p, height = 6, width = 6, file = "../results/change.high.pdf")
-    ggsave(plm, height = 6, width = 6, file = "../results/lm.high.pdf")
-' ../results/change.high.tsv
 ```
 
 ## Split strains from 1002 genomes project into subpopulations
