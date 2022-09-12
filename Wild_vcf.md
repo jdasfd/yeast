@@ -614,7 +614,7 @@ cat random.wild.snp.tsv |
     tsv-select -f 6,7,5,8 |
     awk '{print $0 "\twild"}' |
     perl -nla -e '
-        print join("\t",@F) if $F[0] =~ s/^Non.+$/N_mut/;
+        print join("\t",@F) if $F[0] =~ s/^Nonsy.+$/N_mut/;
         print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
     ' |
     sed '1itype\tgene\tfit\tfreq\texist' \
@@ -1584,34 +1584,3 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
 | Nonsense_mutation      | No  | 146  |
 
 "Yes" here meant muts could be found in at least one of nearest 5 yeast species. There were more than 800 muts existed among other yeast groups.
-
-```bash
-# test
-bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -V indels | bcftools norm -m- | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | wc -l
-Lines   total/split/realigned/skipped:  1625809/81320/0/0
-#1709097
-
-bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -V indels | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | wc -l
-#1625809
-
-bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 -V indels | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | tsv-filter --iregex 4:, | wc -l
-#81320
-
-bcftools view ../../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 | bcftools norm -m- | bcftools view --threads 8 -V indels | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | wc -l
-Lines   total/split/realigned/skipped:  1754866/129507/0/0
-#1745090
-
-bcftools view ../../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 | bcftools norm -m -both | vt decompose_blocksub - | bcftools view -V indels | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' | wc -l
-
-#Lines   total/split/realigned/skipped:  1754866/129507/0/0
-#
-#stats: no. variants                       : 1920571
-#       no. biallelic block substitutions  : 18744
-#
-#       no. additional SNPs                : 18744
-#       no. variants after decomposition   : 1920571
-#
-#Time elapsed: 8m 11s
-#
-#1745090
-```
