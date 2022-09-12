@@ -30,11 +30,11 @@ wildfreq <- ddply(wild, "type", summarise, grp.median = median(freq))
 if (is.null(opt$binwidth)){
     pfreq <- ggplot(wild, aes(x = freq, fill = type)) +
              geom_histogram(alpha = 0.5, position = "identity") +
-             geom_vline(data = wildfit, aes(xintercept = grp.median, color = type), linetype = "dashed")
+             geom_vline(data = wildfreq, aes(xintercept = grp.median, color = type), linetype = "dashed")
 } else {
     pfreq <- ggplot(wild, aes(x = freq, fill = type)) +
              geom_histogram(binwidth = opt$binwidth, alpha = 0.5, position = "identity") +
-             geom_vline(data = wildfit, aes(xintercept = grp.median, color = type), linetype = "dashed")
+             geom_vline(data = wildfreq, aes(xintercept = grp.median, color = type), linetype = "dashed")
 }
 
 if (opt$split) {
