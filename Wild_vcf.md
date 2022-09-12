@@ -822,17 +822,6 @@ do
 done
 
 cat group.num.tsv | mlr --itsv --omd cat
-
-# divided by the number of subpop strains
-cat group.num.tsv |
-    datamash transpose |
-    sed 's/^Mut/group/' |
-    tsv-select -H -f group,All |
-    tsv-join -H -k group -f ../isolates/strain.tsv -a num |
-    sed 1d |
-    perl -nla -e '$num = $F[1]/$F[2];print qq{$F[0]\t$num}' |
-    sed '1igroup\tsnp/strain' \
-    > group.perstrain.tsv
 ```
 
 | Mut        | Bakery | Beer | Bioethanol | Cider | Clinical | Dairy | Distillery | Fermentation | Flower | Fruit | Human | Industrial | Insect | Lab_strain | Nature | Palm_wine | Probiotic | Sake | Soil | Tree | Unknown | Water | Wine |
@@ -843,10 +832,50 @@ cat group.num.tsv |
 | Two_SNPs   | 0      | 0    | 0          | 0     | 0        | 0     | 0          | 0            | 0      | 1     | 0     | 0          | 0      | 0          | 0      | 0         | 0         | 0    | 0    | 0    | 0       | 0     | 0    |
 | Three_SNPs | 0      | 0    | 0          | 0     | 0        | 0     | 0          | 0            | 0      | 0     | 0     | 0          | 0      | 0          | 0      | 0         | 0         | 0    | 0    | 0    | 0       | 0     | 0    |
 
-- 
+```bash
+# divided by the number of subpop strains
+cat group.num.tsv |
+    datamash transpose |
+    sed 's/^Mut/group/' |
+    tsv-select -H -f group,All |
+    tsv-join -H -k group -f ../isolates/strain.tsv -a num |
+    sed 1d |
+    perl -nla -e '$num = $F[1]/$F[2];printf qq{%s\t%.3f\n}, $F[0], $num;' |
+    sed '1igroup\tsnp_per_strain' \
+    > group.perstrain.tsv
+
+# plot
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    data <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(data, aes(x = reorder(group, -snp_per_strain), y = snp_per_strain)) +
+         geom_bar(stat="identity") +
+         geom_text(aes(label = snp_per_strain), vjust=1.6, color="white", size=3.5)+
+         theme(axis.text.x = element_text(angle = 315))
+    ggsave(p, height = 6, width = 15, file = "../results/group.num.pdf")
+' group.perstrain.tsv
+```
+
+- Plot
 
 ```bash
 cd ~/data/yeast/vcf
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    data <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(data, aes(x = reorder(group, -num), y = num, fill = catgry)) +
+         geom_bar(stat="identity", position=position_dodge()) +
+         geom_text(aes(label = num), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+
+         scale_fill_brewer(palette="Paired") +
+         theme(axis.text.x = element_text(angle = 315))
+    ggsave(p, height = 6, width = 15, file = "../results/group.num.pdf")
+' ../results/group.num.tsv
 
 cat all.vcf.tsv | wc -l
 #819
