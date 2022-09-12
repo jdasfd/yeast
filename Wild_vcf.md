@@ -472,18 +472,6 @@ Result on the screen:
 data:  x
 X-squared = 57639, df = 1, p-value < 2.2e-16
 
-==> gene vs other
-       [,1]      [,2]
-[1,] 584862 0.3697021
-[2,] 488643 0.6302979
-[1] 0.5448153
-[1] 0.4551847
-
-        Chi-squared test for given probabilities
-
-data:  x
-X-squared = 141268, df = 1, p-value < 2.2e-16
-
 ==> gene vs 21
         [,1]         [,2]
 [1,]     296 0.0003560607
@@ -609,6 +597,9 @@ Not in wild:
 - Plot them
 
 ```bash
+mkdir ~/data/yeast/results
+cd ~/data/yeast/vcf
+
 # all random mutations exist among wild
 cat random.wild.snp.tsv |
     tsv-select -f 6,7,5,8 |
@@ -745,13 +736,23 @@ wc -l *.lst
 # the result is 1011 after subtraction, split correctly
 ```
 
-- Lineages (update soon)
-
 ### Split the `1011Matrix.gvcf.gz` into small files according to subpopulations
 
 ```bash
 cd ~/data/yeast
 mkdir -p vcf/group
+
+# number of strains
+echo -e "group\tnum" > isolates/strain.tsv
+
+for group in $(cat isolates/group.lst)
+do
+    echo "==> ${group} strain numbers"
+    cat isolates/${group}.lst |
+        wc -l |
+        awk -v group=${group} '{print (group "\t" $0)}' \
+        >> isolates/strain.tsv
+done
 
 # split vcf according to groups
 for group in $(cat isolates/group.lst)
@@ -790,6 +791,120 @@ do
         tsv-filter --ne 5:0 \
         > ../${group}.snp.tsv
 done
+```
+
+### Statistical analysis
+
+- Subpopulations basic info
+
+```bash
+cd ~/data/yeast/vcf
+
+echo -e "Mut\tAll\tPos\tOne_SNP\tTwo_SNPs\tThree_SNPs" |
+    datamash transpose > group.num.tsv
+
+# combine all muts into one matrix-like tsv
+for group in $(cat ../isolates/group.lst)
+do
+    echo "==> ${group}"
+    cat group.num.tsv |
+        tsv-join -H -k Mut \
+        -f <(bash ../scripts/vcf_num.sh ${group}.snp.tsv |
+                grep '^|' |
+                grep -v '-' |
+                sed 's/|  |/| 0 |/' |
+                tsv-select -d '|' -f 2,3 |
+                sed 's/^\s//' |
+                sed 's/\s$//' |
+                sed 's/ | /\t/' |
+                sed "s/Num/${group}/") \
+        -a ${group} > tmp && mv tmp group.num.tsv
+done
+
+cat group.num.tsv | mlr --itsv --omd cat
+
+# divided by the number of subpop strains
+cat group.num.tsv |
+    datamash transpose |
+    sed 's/^Mut/group/' |
+    tsv-select -H -f group,All |
+    tsv-join -H -k group -f ../isolates/strain.tsv -a num |
+    sed 1d |
+    perl -nla -e '$num = $F[1]/$F[2];print qq{$F[0]\t$num}' |
+    sed '1igroup\tsnp/strain' \
+    > group.perstrain.tsv
+```
+
+| Mut        | Bakery | Beer | Bioethanol | Cider | Clinical | Dairy | Distillery | Fermentation | Flower | Fruit | Human | Industrial | Insect | Lab_strain | Nature | Palm_wine | Probiotic | Sake | Soil | Tree | Unknown | Water | Wine |
+|------------|--------|------|------------|-------|----------|-------|------------|--------------|--------|-------|-------|------------|--------|------------|--------|-----------|-----------|------|------|------|---------|-------|------|
+| All        | 35     | 70   | 24         | 21    | 62       | 21    | 43         | 40           | 22     | 64    | 35    | 35         | 45     | 13         | 91     | 51        | 7         | 20   | 40   | 70   | 47      | 39    | 77   |
+| Pos        | 35     | 70   | 24         | 21    | 62       | 21    | 43         | 40           | 22     | 63    | 35    | 35         | 45     | 13         | 91     | 51        | 7         | 20   | 40   | 70   | 47      | 39    | 77   |
+| One_SNP    | 35     | 70   | 24         | 21    | 62       | 21    | 43         | 40           | 22     | 62    | 35    | 35         | 45     | 13         | 91     | 51        | 7         | 20   | 40   | 70   | 47      | 39    | 77   |
+| Two_SNPs   | 0      | 0    | 0          | 0     | 0        | 0     | 0          | 0            | 0      | 1     | 0     | 0          | 0      | 0          | 0      | 0         | 0         | 0    | 0    | 0    | 0       | 0     | 0    |
+| Three_SNPs | 0      | 0    | 0          | 0     | 0        | 0     | 0          | 0            | 0      | 0     | 0     | 0          | 0      | 0          | 0      | 0         | 0         | 0    | 0    | 0    | 0       | 0     | 0    |
+
+- 
+
+```bash
+cd ~/data/yeast/vcf
+
+cat all.vcf.tsv | wc -l
+#819
+# totally 819 snps
+
+cat all.vcf.tsv | tsv-filter --ge 5:0.05 | wc -l
+#431
+# 431 snps population freq >= 0.05
+
+# uniq all snps
+cat all.vcf.tsv |
+    tsv-select -f 1,2,3,4 |
+    tsv-uniq |
+    wc -l
+#248 (8004-7756, right)
+# totally 248 snps found among wild groups
+
+cat all.vcf.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-select -f 1,2,3,4 |
+    tsv-uniq |
+    wc -l
+#112
+# totally 112 high freq (>= 0.05) snps found among groups
+
+cat all.vcf.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 11 --count |
+    tsv-join -f <(cat all.vcf.tsv | tsv-summarize -g 11 --count) -k 1 -a 2 |
+    tsv-sort -nk 3,3 -r |
+    sed '1igroup\thigh_freq\tall' |
+    mlr --itsv --omd cat
+
+cat all.vcf.tsv |
+    tsv-filter --ge 5:0.05 |
+    tsv-summarize -g 11 --count |
+    awk '{print ($0 "\thigh_freq")}' |
+    sed '1igroup\tnum\tcatgry' > tmp &&
+cat all.vcf.tsv |
+    tsv-summarize -g 11 --count |
+    awk '{print ($0 "\tall")}' >> tmp &&
+mv tmp ../results/group.num.tsv
+
+# plot
+# need to change x axis
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    data <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(data, aes(x = reorder(group, -num), y = num, fill = catgry)) +
+         geom_bar(stat="identity", position=position_dodge()) +
+         geom_text(aes(label = num), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+
+         scale_fill_brewer(palette="Paired") +
+         theme(axis.text.x = element_text(angle = 315))
+    ggsave(p, height = 6, width = 15, file = "../results/group.num.pdf")
+' ../results/group.num.tsv
 ```
 
 ## Genome alignment
@@ -839,12 +954,6 @@ egaz template \
 
 bash GENOMES/0_prep.sh
 ```
-
-## Statistical analysis
-
-### Basic info
-
-- The numbers of SNPs occurred among subpopulations
 
 ```bash
 mkdir ~/data/yeast/results
@@ -908,32 +1017,6 @@ Rscript -e '
     ggsave(p, height = 6, width = 15, file = "../results/group.num.pdf")
 ' ../results/group.num.tsv
 ```
-
-| group        | high_freq | all |
-|--------------|-----------|-----|
-| Nature       | 23        | 83  |
-| Wine         | 10        | 63  |
-| Beer         | 24        | 59  |
-| Tree         | 22        | 57  |
-| Fruit        | 21        | 54  |
-| Clinical     | 20        | 54  |
-| Unknown      | 17        | 39  |
-| Distillery   | 18        | 38  |
-| Palm_wine    | 22        | 37  |
-| Insect       | 33        | 37  |
-| Fermentation | 20        | 34  |
-| Water        | 27        | 33  |
-| Soil         | 27        | 33  |
-| Industrial   | 23        | 32  |
-| Human        | 16        | 29  |
-| Bakery       | 22        | 29  |
-| Bioethanol   | 12        | 20  |
-| Flower       | 18        | 19  |
-| Dairy        | 13        | 19  |
-| Cider        | 17        | 19  |
-| Sake         | 11        | 16  |
-| Lab_strain   | 9         | 9   |
-| Probiotic    | 6         | 6   |
 
 - The numbers of subpopulations of an SNP
 
