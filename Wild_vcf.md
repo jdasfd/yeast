@@ -612,25 +612,40 @@ Not in wild:
 # all random mutations exist among wild
 cat random.wild.snp.tsv |
     tsv-select -f 6,7,5,8 |
+    awk '{print $0 "\twild"}' |
     perl -nla -e '
         print join("\t",@F) if $F[0] =~ s/^Non.+$/N_mut/;
         print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
     ' |
-    sed '1itype\tgene\tfit\tfreq' \
-    > ../results/wild.tsv
+    sed '1itype\tgene\tfit\tfreq\texist' \
+    > ../results/all.tsv
 
-cat random.wild.snp.tsv |
-    tsv-filter --ge 8:0.05 |
-    tsv-select -f 6,7,5,8 |
+# other mutations
+cat random.not_wild.snp.tsv |
+    tsv-select -f 6,7,5 |
+    awk '{print $0 "\t0\tnot"}' |
     perl -nla -e '
-        print join("\t",@F) if $F[0] =~ s/^Non.+$/N_mut/;
+        next if $F[0] =~ /^Nonsense.+/;
+        print join("\t",@F) if $F[0] =~ s/^Nonsy.+$/N_mut/;
         print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
-    ' |
-    sed '1itype\tgene\tfit\tfreq' \
-    > ../results/wild.high.tsv
+    ' \
+    >> ../results/all.tsv
 
+# remove all nonsense mutations
+cat ../results/all.tsv | wc -l
+#8173
+# echo 282+8059+1-169 | bc
+
+# plot script
+# mut type
 Rscript ../scripts/dis_fit.r \
-    -f ../results/wild.tsv -b 0.0025 -o ../results/wild.all.fit.pdf
+    -f ../results/all.tsv -t type -b 0.0025 \
+    -o ../results/wild_type.fit.pdf
+
+# exist or not
+Rscript ../scripts/dis_fit.r \
+    -f ../results/all.tsv -t exist -b 0.0025 \
+    -o ../results/exist.fit.pdf
 
 Rscript -e '
     library(ggplot2)
