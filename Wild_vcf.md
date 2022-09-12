@@ -249,6 +249,7 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
 
 bash scripts/vcf_num.sh vcf/all.snp.tsv
 
+# freq >= 0.5
 cat vcf/all.snp.tsv | tsv-filter --ge 5:0.05 > vcf/all.high.snp.tsv
 
 bash scripts/vcf_num.sh vcf/all.high.snp.tsv
@@ -322,6 +323,7 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 6 -R gene/g
 
 bash scripts/vcf_num.sh vcf/gene_all.snp.tsv
 
+# freq >= 0.5
 cat vcf/gene_all.snp.tsv | tsv-filter --ge 5:0.05 > vcf/gene_all.high.snp.tsv
 
 bash scripts/vcf_num.sh vcf/gene_all.high.snp.tsv
@@ -356,6 +358,7 @@ cat vcf/all.snp.tsv | tsv-join -k 1,2,3,4 -e \
 
 bash scripts/vcf_num.sh vcf/not_gene.snp.tsv
 
+# freq >= 0.5
 cat vcf/not_gene.snp.tsv | tsv-filter --ge 5:0.05 > vcf/not_gene.high.snp.tsv
 
 bash scripts/vcf_num.sh vcf/not_gene.high.snp.tsv
@@ -422,6 +425,7 @@ bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 6 -R gene/g
 
 bash scripts/vcf_num.sh vcf/gene_21.snp.tsv
 
+# freq >= 0.5
 cat vcf/gene_21.snp.tsv | tsv-filter --ge 5:0.05 > vcf/gene_21.high.snp.tsv
 
 bash scripts/vcf_num.sh vcf/gene_21.high.snp.tsv
@@ -537,30 +541,75 @@ not in the wild:
 
 ### Statistical results of mutations
 
-There are questions for solving:
+There are some levels should be discussed:
 
-1. 
+1. Whether mutations exist among wild populations or not.
+2. Whether mutations are synonymous or non-synonymous.
+
+- Count and format table
 
 ```bash
 cd ~/data/yeast/vcf
 
+# muts in wild
 cat random.wild.snp.tsv |
     tsv-summarize -g 6 --mean 5 --median 5 --count |
     sed '1itype\tfit_mean\tfit_median\tcount' |
     mlr --itsv --omd cat
 
+# muts in wild (freq >= 0.05)
 cat random.wild.snp.tsv |
     tsv-filter --ge 8:0.05 |
     tsv-summarize -g 6 --mean 5 --median 5 --count |
     sed '1itype\tfit_mean\tfit_median\tcount' |
     mlr --itsv --omd cat
 
+# muts count (freq >= 0.1)
 cat random.wild.snp.tsv |
     tsv-filter --ge 8:0.1 |
     tsv-summarize -g 6 --count |
     sed '1itype\tcount' |
     mlr --itsv --omd cat
 
+cat random.not_wild.snp.tsv |
+    tsv-summarize -g 6 --mean 5 --median 5 --count |
+    sed '1itype\tfit_mean\tfit_median\tcount' |
+    mlr --itsv --omd cat
+```
+
+Mutations fitness in wild:
+
+| type                   | fit_mean       | fit_median    | count |
+|------------------------|----------------|---------------|-------|
+| Nonsynonymous_mutation | 0.988545219123 | 0.98948772825 | 130   |
+| Synonymous_mutation    | 0.987720205444 | 0.988143842   | 152   |
+
+High freq (>= 0.05):
+
+| type                   | fit_mean       | fit_median    | count |
+|------------------------|----------------|---------------|-------|
+| Synonymous_mutation    | 0.985455825819 | 0.98603116925 | 13    |
+| Nonsynonymous_mutation | 0.988684188175 | 0.990983907   | 7     |
+
+Freq > 0.1 count:
+
+| type                   | count |
+|------------------------|-------|
+| Synonymous_mutation    | 9     |
+| Nonsynonymous_mutation | 2     |
+
+Not in wild:
+
+| type                   | fit_mean       | fit_median     | count |
+|------------------------|----------------|----------------|-------|
+| Nonsynonymous_mutation | 0.984880514548 | 0.988017819625 | 6176  |
+| Synonymous_mutation    | 0.987820844726 | 0.988834603375 | 1714  |
+| Nonsense_mutation      | 0.933970180448 | 0.93983089275  | 169   |
+
+- Plot them
+
+```bash
+# all random mutations exist among wild
 cat random.wild.snp.tsv |
     tsv-select -f 6,7,5,8 |
     perl -nla -e '
@@ -671,25 +720,6 @@ Rscript -e '
     ggsave(plm, height = 6, width = 6, file = "../results/lm.high.pdf")
 ' ../results/change.high.tsv
 ```
-
-| type                   | fit_mean       | fit_median    | count |
-|------------------------|----------------|---------------|-------|
-| Nonsynonymous_mutation | 0.988545219123 | 0.98948772825 | 130   |
-| Synonymous_mutation    | 0.987720205444 | 0.988143842   | 152   |
-
-High freq (>= 0.05):
-
-| type                   | fit_mean       | fit_median    | count |
-|------------------------|----------------|---------------|-------|
-| Synonymous_mutation    | 0.985455825819 | 0.98603116925 | 13    |
-| Nonsynonymous_mutation | 0.988684188175 | 0.990983907   | 7     |
-
-Freq > 0.1 count:
-
-| type                   | count |
-|------------------------|-------|
-| Synonymous_mutation    | 9     |
-| Nonsynonymous_mutation | 2     |
 
 ## Split strains from 1002 genomes project into subpopulations
 
