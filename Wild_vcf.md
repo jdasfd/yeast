@@ -96,8 +96,11 @@ perl scripts/xlsx2csv.pl -f info/41586_2022_4823_MOESM9_ESM.xlsx \
     > info/fit.tsv
 
 # count all mutations with available fitness data
+cat info/fit.tsv | tsv-uniq -f 1,2,3,4 > tmp && mv tmp info/fit.tsv
+# check whether repeated
+
 cat info/fit.tsv | wc -l
-#8341
+#8340
 ```
 
 - Gene sequences
@@ -199,7 +202,7 @@ perl scripts/loc2vcf.pl -b gene/gene.blast.tsv \
     > vcf/random.snp.tsv
 
 cat vcf/random.snp.tsv | wc -l
-#8341
+#8340
 # the same number of info/fit.tsv
 
 # diff fit
@@ -222,7 +225,7 @@ done
 #Synonymous_mutation     1043
 #Nonsense_mutation       143
 #==> fitness neither
-#Nonsynonymous_mutation  2576
+#Nonsynonymous_mutation  2575
 #Synonymous_mutation     808
 #Nonsense_mutation       26
 ```
@@ -521,11 +524,11 @@ not in the wild:
 
 | Mut        | Num  |
 |------------|------|
-| All        | 8059 |
+| All        | 8058 |
 | Pos        | 3047 |
 | One_SNP    | 227  |
-| Two_SNPs   | 628  |
-| Three_SNPs | 2192 |
+| Two_SNPs   | 629  |
+| Three_SNPs | 2191 |
 
 ### Statistical results of mutations
 
@@ -590,7 +593,7 @@ Not in wild:
 
 | type                   | fit_mean       | fit_median     | count |
 |------------------------|----------------|----------------|-------|
-| Nonsynonymous_mutation | 0.984880514548 | 0.988017819625 | 6176  |
+| Nonsynonymous_mutation | 0.984878530688 | 0.988017172    | 6175  |
 | Synonymous_mutation    | 0.987820844726 | 0.988834603375 | 1714  |
 | Nonsense_mutation      | 0.933970180448 | 0.93983089275  | 169   |
 
@@ -624,8 +627,8 @@ cat random.not_wild.snp.tsv |
 
 # remove all nonsense mutations
 cat ../results/all.tsv | wc -l
-#8173
-# echo 282+8059+1-169 | bc
+#8172
+# echo 282+8058+1-169 | bc
 
 # plot fit script
 # mut type
@@ -868,101 +871,38 @@ rm group.snp.tsv
 for group in $(cat ../isolates/group.lst)
 do
     echo "==> ${group}"
-    cat ${group}.snp.tsv | awk -v group=${group} '{print ($0 "\t" group)}' \
+    cat ${group}.snp.tsv |
+        tsv-join -k 1,2,3,4 -f random.snp.tsv -a 5,6,7 |
+        awk -v group=${group} '{print ($0 "\t" group)}' \
     >> group.snp.tsv
 done
 
 cat group.snp.tsv | wc -l
-#973
-# totally 973 snps (an snp could exist among multiple groups)
+#893
+# totally 893 snps (an snp could exist among multiple groups)
 
-cat group.snp.tsv | tsv-filter -H --ge AF:0.05 | wc -l
-#505
-# 505 snps population freq >= 0.05
+cat group.snp.tsv | tsv-filter --ge 5:0.05 | wc -l
+#453
+# 453 snps population freq >= 0.05
 
 # uniq all snps
 cat group.snp.tsv |
-    tsv-select -H -f chr,pos,REF,ALT |
+    tsv-select -f 1,2,3,4 |
     tsv-uniq |
     wc -l
-#307
-# 307 snps among groups
+#282
+# 282 snps among groups
 
 cat group.snp.tsv |
-    tsv-filter -H --ge AF:0.05 |
-    tsv-select -H -f chr,pos,REF,ALT |
+    tsv-filter --ge 5:0.05 |
+    tsv-select -f 1,2,3,4 |
     tsv-uniq |
     wc -l
-#136
-# totally 136 high freq (>= 0.05) snps found among groups
+#127
+# totally 127 high freq (>= 0.05) snps found among groups
 
+# gene count
 cat group.snp.tsv |
-    tsv-summarize -H -g chr,pos,REF,ALT,10 --count |
-    tsv-sort -r -nk 6,6 |
-    tsv-select -f 1,5,6 |
-    tsv-filter --ge 3:10 |
-    sed '1ichr\tgene\tgroup' |
-    mlr --itsv --omd cat
-```
-
-## Genome alignment
-
-### Download genomes
-
-```bash
-mkdir -p ~/data/yeast/download
-cd ~/data/yeast/download
-
-# BY4742 strain was used in the article
-wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.fsa.gz
-wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.gff.gz
-
-# S288c - reference genome
-aria2c -c ftp://ftp.ensembl.org/pub/release-105/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz
-aria2c -c ftp://ftp.ensembl.org/pub/release-105/gff3/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz
-```
-
-### Prepare sequences
-
-```bash
-cd ~/data/yeast
-
-# reference
-egaz prepseq \
-    download/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz \
-    --repeatmasker "--species Fungi --gff --parallel 12" \
-    --min 1000 --gi -v \
-    -o GENOMES/S288c
-
-egaz prepseq \
-    download/BY4742_Toronto_2012.fsa.gz \
-    --repeatmasker "--species Fungi --gff --parallel 12" \
-    --min 1000 --gi -v \
-    -o GENOMES/BY4742
-
-gzip -dcf download/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz > GENOMES/S288c/chr.gff
-gzip -dcf download/BY4742_Toronto_2012.gff.gz > GENOMES/BY4742/chr.gff
-
-# prep assembly
-egaz template \
-    download \
-    --prep -o GENOMES \
-    --min 1000 --about 1_000_000 \
-    -v --repeatmasker "--species Fungi --parallel 12"
-
-bash GENOMES/0_prep.sh
-```
-
-- The numbers of subpopulations of an SNP
-
-```bash
-cd ~/data/yeast/vcf
-
-cat ../isolates/group.lst | wc -l
-#23
-
-# all snps occurred at least 10 groups
-cat all.vcf.tsv |
     tsv-summarize -g 1,2,3,4,10 --count |
     tsv-sort -r -nk 6,6 |
     tsv-select -f 1,5,6 |
@@ -991,6 +931,7 @@ cat all.vcf.tsv |
 | chromosome5  | IES6  | 11    |
 | chromosome13 | ASC1  | 11    |
 | chromosome12 | EST1  | 11    |
+| chromosome7  | RAD6  | 10    |
 | chromosome5  | IES6  | 10    |
 | chromosome12 | TSR2  | 10    |
 
@@ -1538,6 +1479,54 @@ p <- ggplot(data, aes(x = freq, y = fit, color = group)) +
      facet_wrap(~group)
 ggsave(p, height = 6, width = 15, file = "../results/group.freq_fit.pdf")
 ' ../results/group.freq_fit.tsv
+```
+
+## Genome alignment
+
+### Download genomes
+
+```bash
+mkdir -p ~/data/yeast/download
+cd ~/data/yeast/download
+
+# BY4742 strain was used in the article
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.fsa.gz
+wget http://sgd-archive.yeastgenome.org/sequence/strains/BY4742/BY4742_Toronto_2012/BY4742_Toronto_2012.gff.gz
+
+# S288c - reference genome
+aria2c -c ftp://ftp.ensembl.org/pub/release-105/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz
+aria2c -c ftp://ftp.ensembl.org/pub/release-105/gff3/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz
+```
+
+### Prepare sequences
+
+```bash
+cd ~/data/yeast
+
+# reference
+egaz prepseq \
+    download/Saccharomyces_cerevisiae.R64-1-1.dna_sm.toplevel.fa.gz \
+    --repeatmasker "--species Fungi --gff --parallel 12" \
+    --min 1000 --gi -v \
+    -o GENOMES/S288c
+
+egaz prepseq \
+    download/BY4742_Toronto_2012.fsa.gz \
+    --repeatmasker "--species Fungi --gff --parallel 12" \
+    --min 1000 --gi -v \
+    -o GENOMES/BY4742
+
+gzip -dcf download/Saccharomyces_cerevisiae.R64-1-1.105.gff3.gz > GENOMES/S288c/chr.gff
+gzip -dcf download/BY4742_Toronto_2012.gff.gz > GENOMES/BY4742/chr.gff
+
+# prep assembly
+egaz template \
+    download \
+    --prep -o GENOMES \
+    --min 1000 --about 1_000_000 \
+    -v --repeatmasker "--species Fungi --parallel 12"
+
+bash GENOMES/0_prep.sh
 ```
 
 ## Count SNPs existed in other closely related species from original article
