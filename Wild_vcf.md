@@ -824,18 +824,9 @@ do
         -a ${group} > tmp && mv tmp group.num.tsv
 done
 
+# count basic mutations among groups
 cat group.num.tsv | mlr --itsv --omd cat
-```
 
-| Mut        | Bakery | Beer | Bioethanol | Cider | Clinical | Dairy | Distillery | Fermentation | Flower | Fruit | Human | Industrial | Insect | Lab_strain | Nature | Palm_wine | Probiotic | Sake | Soil | Tree | Unknown | Water | Wine |
-|------------|--------|------|------------|-------|----------|-------|------------|--------------|--------|-------|-------|------------|--------|------------|--------|-----------|-----------|------|------|------|---------|-------|------|
-| All        | 35     | 70   | 24         | 21    | 62       | 21    | 43         | 40           | 22     | 64    | 35    | 35         | 45     | 13         | 91     | 51        | 7         | 20   | 40   | 70   | 47      | 39    | 77   |
-| Pos        | 35     | 70   | 24         | 21    | 62       | 21    | 43         | 40           | 22     | 63    | 35    | 35         | 45     | 13         | 91     | 51        | 7         | 20   | 40   | 70   | 47      | 39    | 77   |
-| One_SNP    | 35     | 70   | 24         | 21    | 62       | 21    | 43         | 40           | 22     | 62    | 35    | 35         | 45     | 13         | 91     | 51        | 7         | 20   | 40   | 70   | 47      | 39    | 77   |
-| Two_SNPs   | 0      | 0    | 0          | 0     | 0        | 0     | 0          | 0            | 0      | 1     | 0     | 0          | 0      | 0          | 0      | 0         | 0         | 0    | 0    | 0    | 0       | 0     | 0    |
-| Three_SNPs | 0      | 0    | 0          | 0     | 0        | 0     | 0          | 0            | 0      | 0     | 0     | 0          | 0      | 0          | 0      | 0         | 0         | 0    | 0    | 0    | 0       | 0     | 0    |
-
-```bash
 # divided by the number of subpop strains
 cat group.num.tsv |
     datamash transpose |
@@ -859,13 +850,8 @@ Rscript -e '
          theme(axis.text.x = element_text(angle = 315))
     ggsave(p, height = 6, width = 15, file = "../results/group.num.pdf")
 ' group.perstrain.tsv
-```
 
-- Plot
-
-```bash
-cd ~/data/yeast/vcf
-
+# mv all grouped info to one file
 rm group.snp.tsv
 
 for group in $(cat ../isolates/group.lst)
@@ -901,85 +887,41 @@ cat group.snp.tsv |
 #127
 # totally 127 high freq (>= 0.05) snps found among groups
 
+# extract for plot
+cat group.snp.tsv |
+    tsv-select -f 9,10,8,5,11 |
+    perl -nla -e '
+        print join("\t",@F) if $F[0] =~ s/^Non.+$/N_mut/;
+        print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
+    ' |
+    sed '1itype\tgene\tfit\tfreq\tgroup' \
+    > ../results/group.tsv
+
+mkdir ~/data/yeast/vcf/snp
+
 # gene count
 cat group.snp.tsv |
     tsv-summarize -g 1,2,3,4,10 --count |
     tsv-sort -r -nk 6,6 |
-    tsv-select -f 1,5,6 |
-    tsv-filter --ge 3:10 |
-    sed '1ichr\tgene\tgroup' |
+    tsv-filter --ge 6:10 |
+    sed '1ichr\tpos\tREF\tALT\tgene\tnum' |
     mlr --itsv --omd cat
-```
-
-| chr          | gene  | group |
-|--------------|-------|-------|
-| chromosome12 | EST1  | 23    |
-| chromosome7  | GET1  | 22    |
-| chromosome7  | GET1  | 22    |
-| chromosome12 | TSR2  | 22    |
-| chromosome6  | RPL29 | 21    |
-| chromosome5  | IES6  | 21    |
-| chromosome14 | EOS1  | 21    |
-| chromosome14 | EOS1  | 21    |
-| chromosome3  | BUD23 | 20    |
-| chromosome5  | IES6  | 19    |
-| chromosome12 | CCW12 | 19    |
-| chromosome12 | EST1  | 18    |
-| chromosome3  | BUD23 | 16    |
-| chromosome7  | GET1  | 13    |
-| chromosome6  | RPL29 | 12    |
-| chromosome5  | IES6  | 11    |
-| chromosome13 | ASC1  | 11    |
-| chromosome12 | EST1  | 11    |
-| chromosome7  | RAD6  | 10    |
-| chromosome5  | IES6  | 10    |
-| chromosome12 | TSR2  | 10    |
-
-- Frequencies of each SNP occurred more than 10 subpopulations
-
-```bash
-mkdir ~/data/yeast/vcf/freq
-cd ~/data/yeast/vcf
 
 # freq among groups
-cat all.vcf.tsv |
-    tsv-select -f 1,2,3,4 |
-    tsv-uniq |
+cat group.snp.tsv |
+    tsv-summarize -g 1,2,3,4,10 --count |
+    tsv-sort -r -nk 6,6 |
+    tsv-filter --ge 6:10 |
     parallel --colsep '\t' -j 4 -k '
-        cat all.vcf.tsv |
+        cat group.snp.tsv |
         tsv-filter --str-eq 1:{1} --eq 2:{2} --str-eq 3:{3} --str-eq 4:{4} |
         tsv-select -f 11,9,5 |
         sed "1igroup\ttype\tfreq" \
-        > freq/{1}_{2}_{3}_{4}.tsv
+        > snp/{1}_{2}_{3}_{4}.tsv
     '
 
-cd ~/data/yeast/vcf/freq
-
-ls *.tsv | wc -l
-#248
-
-cat ../all.vcf.tsv |
-    tsv-summarize -g 1,2,3,4 --count | 
-    tsv-filter --ge 5:10 |
-    wc -l
-#20
-
-for name in $(wc -l *.tsv |
-              grep -v 'total$' |
-              datamash reverse -W |
-              tsv-filter --lt 2:11 | #header should be included
-              tsv-select -f 1)
-do
-    rm ${name}
-done
-
-wc -l *.tsv |
-    grep -v 'total$' |
-    wc -l
-#20
-
 # plot
-for file in $(ls *.tsv)
+for file in $(ls snp/*.tsv)
 do
     echo "==>${file}"
     Rscript -e '
@@ -998,413 +940,231 @@ do
 done
 ```
 
-### Frequencies and fitness of SNP
+SNPs among groups:
 
-- The mean and median of all mutation frequencies
+| Mut        | Bakery | Beer | Bioethanol | Cider | Clinical | Dairy | Distillery | Fermentation | Flower | Fruit | Human | Industrial | Insect | Lab_strain | Nature | Palm_wine | Probiotic | Sake | Soil | Tree | Unknown | Water | Wine |
+|------------|--------|------|------------|-------|----------|-------|------------|--------------|--------|-------|-------|------------|--------|------------|--------|-----------|-----------|------|------|------|---------|-------|------|
+| All        | 35     | 70   | 24         | 21    | 62       | 21    | 43         | 40           | 22     | 64    | 35    | 35         | 45     | 13         | 91     | 51        | 7         | 20   | 40   | 70   | 47      | 39    | 77   |
+| Pos        | 35     | 70   | 24         | 21    | 62       | 21    | 43         | 40           | 22     | 63    | 35    | 35         | 45     | 13         | 91     | 51        | 7         | 20   | 40   | 70   | 47      | 39    | 77   |
+| One_SNP    | 35     | 70   | 24         | 21    | 62       | 21    | 43         | 40           | 22     | 62    | 35    | 35         | 45     | 13         | 91     | 51        | 7         | 20   | 40   | 70   | 47      | 39    | 77   |
+| Two_SNPs   | 0      | 0    | 0          | 0     | 0        | 0     | 0          | 0            | 0      | 1     | 0     | 0          | 0      | 0          | 0      | 0         | 0         | 0    | 0    | 0    | 0       | 0     | 0    |
+| Three_SNPs | 0      | 0    | 0          | 0     | 0        | 0     | 0          | 0            | 0      | 0     | 0     | 0          | 0      | 0          | 0      | 0         | 0         | 0    | 0    | 0    | 0       | 0     | 0    |
 
-```bash
-cd ~/data/yeast/vcf
+SNPs gene count:
 
-# freq mean and median
-# snps existent in wild groups
-cat all.vcf.tsv |
-    tsv-summarize -g 9 --count --mean 5 --median 5 |
-    sed '1imut_type\tnum\tfreq_mean\tfreq_median' |
-    mlr --itsv --omd cat
+| chr          | pos     | REF | ALT | gene  | num |
+|--------------|---------|-----|-----|-------|-----|
+| chromosome12 | 609213  | A   | G   | EST1  | 23  |
+| chromosome7  | 457631  | T   | C   | GET1  | 22  |
+| chromosome7  | 457592  | A   | G   | GET1  | 22  |
+| chromosome12 | 1006428 | T   | C   | TSR2  | 22  |
+| chromosome6  | 223291  | G   | A   | RPL29 | 21  |
+| chromosome5  | 70005   | A   | G   | IES6  | 21  |
+| chromosome14 | 477742  | G   | A   | EOS1  | 21  |
+| chromosome14 | 477705  | C   | T   | EOS1  | 21  |
+| chromosome3  | 211204  | A   | G   | BUD23 | 20  |
+| chromosome5  | 69939   | A   | G   | IES6  | 19  |
+| chromosome12 | 369873  | T   | C   | CCW12 | 19  |
+| chromosome12 | 609230  | C   | T   | EST1  | 18  |
+| chromosome3  | 211292  | G   | C   | BUD23 | 16  |
+| chromosome7  | 457619  | G   | A   | GET1  | 13  |
+| chromosome6  | 223290  | T   | A   | RPL29 | 12  |
+| chromosome5  | 70029   | T   | G   | IES6  | 11  |
+| chromosome13 | 500539  | G   | C   | ASC1  | 11  |
+| chromosome12 | 609150  | A   | G   | EST1  | 11  |
+| chromosome7  | 394084  | C   | T   | RAD6  | 10  |
+| chromosome5  | 69963   | C   | G   | IES6  | 10  |
+| chromosome12 | 1006476 | G   | A   | TSR2  | 10  |
 
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 9 --count --mean 5 --median 5 |
-    sed '1imut_type\tnum\thigh_freq_mean\thigh_freq_median' |
-    mlr --itsv --omd cat
-```
-
-| mut_type               | num | freq_mean      | freq_median |
-|------------------------|-----|----------------|-------------|
-| Synonymous_mutation    | 504 | 0.248842422897 | 0.0669872   |
-| Nonsynonymous_mutation | 315 | 0.110011291778 | 0.0357143   |
-
-| mut_type               | num | high_freq_mean | high_freq_median |
-|------------------------|-----|----------------|------------------|
-| Synonymous_mutation    | 292 | 0.41346027637  | 0.3074075        |
-| Nonsynonymous_mutation | 139 | 0.221710007194 | 0.109375         |
-
-```bash
-cd ~/data/yeast/vcf
-
-# output into a tsv for plot
-cat all.vcf.tsv |
-    tsv-summarize -g 11,9 --count --mean 5 --median 5 |
-    sed '1igroup\ttype\tnum\tfreq_mean\tfreq_median' |
-    mlr --itsv --omd cat
-
-cat all.vcf.tsv |
-    tsv-select -f 11,5,9 |
-    perl -nla -e '
-        print join("\t",@F) if $F[2] =~ s/^Non.+$/N_mut/;
-        print join("\t",@F) if $F[2] =~ s/^Sy.+$/S_mut/;
-    ' |
-    sed '1igroup\tfreq\ttype' \
-    > ../results/group.freq.tsv
-
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    args <- commandArgs(T)
-    freq <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(freq, aes(x = type, y = freq, fill = type))+
-         geom_boxplot() +
-         theme(axis.text.x = element_text(angle = 315)) +
-         facet_grid(~group)
-    ggsave(p, height = 6, width = 15, file = "../results/group.freq.pdf")
-' ../results/group.freq.tsv
-
-cat all.vcf.tsv |
-    tsv-summarize -g 11,9 --count --mean 5 --median 5 |
-    perl -nla -e '
-        print join("\t",@F) if $F[1] =~ s/^Non.+$/N_mut/;
-        print join("\t",@F) if $F[1] =~ s/^Sy.+$/S_mut/;
-    ' |
-    sed '1igroup\ttype\tnum\tfreq_mean\tfreq_median' \
-    > ../results/group.freq.bar.tsv
-
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    args <- commandArgs(T)
-    freq <- read_tsv(args[1], show_col_types = FALSE)
-    p1 <- ggplot(freq, aes(x = type, y = freq_mean, fill = type))+
-         geom_col() +
-         theme(axis.text.x = element_text(angle = 315)) +
-         facet_grid(~group)
-    p2 <- ggplot(freq, aes(x = type, y = freq_median, fill = type))+
-         geom_col() +
-         theme(axis.text.x = element_text(angle = 315)) +
-         facet_grid(~group)
-    ggsave(p1, height = 6, width = 15, file = "../results/group.freq.mean.bar.pdf")
-    ggsave(p2, height = 6, width = 15, file = "../results/group.freq.median.bar.pdf")
-' ../results/group.freq.bar.tsv
-
-# >= 0.05
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 11,9 --count --mean 5 --median 5 |
-    sed '1igroup\ttype\tnum\thighfreq_mean\thighfreq_median' |
-    mlr --itsv --omd cat
-
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-select -f 11,5,9 |
-    perl -nla -e '
-        print join("\t",@F) if $F[2] =~ s/^Non.+$/N_mut/;
-        print join("\t",@F) if $F[2] =~ s/^Sy.+$/S_mut/;
-    ' |
-    sed '1igroup\tfreq\ttype' \
-    > ../results/group.highfreq.tsv
-
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    args <- commandArgs(T)
-    freq <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(freq, aes(x = type, y = freq, fill = type))+
-         geom_boxplot() +
-         theme(axis.text.x = element_text(angle = 315)) +
-         facet_grid(~group)
-    ggsave(p, height = 6, width = 15, file = "../results/group.highfreq.pdf")
-' ../results/group.highfreq.tsv
-
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-summarize -g 11,9 --count --mean 5 --median 5 |
-    perl -nla -e '
-        print join("\t",@F) if $F[1] =~ s/^Non.+$/N_mut/;
-        print join("\t",@F) if $F[1] =~ s/^Sy.+$/S_mut/;
-    ' |
-    sed '1igroup\ttype\tnum\thighfreq_mean\thighfreq_median' \
-    > ../results/group.highfreq.bar.tsv
-
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    args <- commandArgs(T)
-    freq <- read_tsv(args[1], show_col_types = FALSE)
-    p1 <- ggplot(freq, aes(x = type, y = highfreq_mean, fill = type))+
-         geom_col() +
-         theme(axis.text.x = element_text(angle = 315)) +
-         facet_grid(~group)
-    p2 <- ggplot(freq, aes(x = type, y = highfreq_median, fill = type))+
-         geom_col() +
-         theme(axis.text.x = element_text(angle = 315)) +
-         facet_grid(~group)
-    ggsave(p1, height = 6, width = 15, file = "../results/group.highfreq.mean.bar.pdf")
-    ggsave(p2, height = 6, width = 15, file = "../results/group.highfreq.median.bar.pdf")
-' ../results/group.highfreq.bar.tsv
-
-# distribution of freq
-# all unique detected snps
-cat all.vcf.tsv |
-    tsv-select -f 11,5,9 |
-    sed '1igroup\tfreq\ttype' \
-    > ../results/dist.freq.tsv
-
-Rscript -e '
-    library(ggplot2)
-    library(readr)
-    library(plyr)
-    library(gridExtra)
-    args <- commandArgs(T)
-    freq <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(freq, aes(x = freq, fill = type)) +
-         geom_histogram(alpha = 0.5, position = "identity") +
-         facet_wrap(~group, nrow = 6)
-    ggsave(p, height = 15, width = 15, file = "../results/dist.freq.pdf")
-' ../results/dist.freq.tsv
-```
-
-| group        | type                   | num | freq_mean       | freq_median |
-|--------------|------------------------|-----|-----------------|-------------|
-| Bakery       | Synonymous_mutation    | 15  | 0.31441444      | 0.27027     |
-| Bakery       | Nonsynonymous_mutation | 14  | 0.102757864286  | 0.0675676   |
-| Beer         | Synonymous_mutation    | 33  | 0.175525345455  | 0.0423729   |
-| Beer         | Nonsynonymous_mutation | 26  | 0.0634637838462 | 0.0338983   |
-| Bioethanol   | Synonymous_mutation    | 12  | 0.430555341667  | 0.304131    |
-| Bioethanol   | Nonsynonymous_mutation | 8   | 0.136574075     | 0.03703705  |
-| Cider        | Nonsynonymous_mutation | 9   | 0.216298922222  | 0.205882    |
-| Cider        | Synonymous_mutation    | 10  | 0.38823524      | 0.2058825   |
-| Clinical     | Nonsynonymous_mutation | 23  | 0.0739591773913 | 0.0233645   |
-| Clinical     | Synonymous_mutation    | 31  | 0.146980374839  | 0.0280374   |
-| Dairy        | Nonsynonymous_mutation | 6   | 0.370370266667  | 0.1944443   |
-| Dairy        | Synonymous_mutation    | 13  | 0.410826238462  | 0.111111    |
-| Distillery   | Nonsynonymous_mutation | 13  | 0.119363384615  | 0.0344828   |
-| Distillery   | Synonymous_mutation    | 25  | 0.2461576       | 0.0517241   |
-| Fermentation | Synonymous_mutation    | 22  | 0.332702027273  | 0.277778    |
-| Fermentation | Nonsynonymous_mutation | 12  | 0.15625         | 0.0277778   |
-| Flower       | Synonymous_mutation    | 13  | 0.368131892308  | 0.214286    |
-| Flower       | Nonsynonymous_mutation | 6   | 0.202380916667  | 0.0892858   |
-| Fruit        | Synonymous_mutation    | 36  | 0.150369286111  | 0.0425532   |
-| Fruit        | Nonsynonymous_mutation | 18  | 0.0721040277778 | 0.0319149   |
-| Human        | Nonsynonymous_mutation | 14  | 0.221198171429  | 0.02419355  |
-| Human        | Synonymous_mutation    | 15  | 0.43870974      | 0.193548    |
-| Industrial   | Nonsynonymous_mutation | 14  | 0.0955782714286 | 0.06904765  |
-| Industrial   | Synonymous_mutation    | 18  | 0.274338588889  | 0.2         |
-| Insect       | Nonsynonymous_mutation | 9   | 0.116666666667  | 0.05        |
-| Insect       | Synonymous_mutation    | 28  | 0.227678571429  | 0.1         |
-| Lab_strain   | Synonymous_mutation    | 8   | 0.625           | 0.5         |
-| Lab_strain   | Nonsynonymous_mutation | 1   | 0.5             | 0.5         |
-| Nature       | Synonymous_mutation    | 53  | 0.0990637173585 | 0.0192308   |
-| Nature       | Nonsynonymous_mutation | 30  | 0.0497360686667 | 0.0192308   |
-| Palm_wine    | Synonymous_mutation    | 26  | 0.290384630769  | 0.0666667   |
-| Palm_wine    | Nonsynonymous_mutation | 11  | 0.148484872727  | 0.0333333   |
-| Probiotic    | Nonsynonymous_mutation | 3   | 0.5             | 0.5         |
-| Probiotic    | Synonymous_mutation    | 3   | 1               | 1           |
-| Sake         | Synonymous_mutation    | 13  | 0.688216115385  | 0.989362    |
-| Sake         | Nonsynonymous_mutation | 3   | 0.386524866667  | 0.148936    |
-| Soil         | Synonymous_mutation    | 20  | 0.255921065     | 0.13815815  |
-| Soil         | Nonsynonymous_mutation | 13  | 0.106275330769  | 0.0789474   |
-| Tree         | Synonymous_mutation    | 41  | 0.153325256098  | 0.03125     |
-| Tree         | Nonsynonymous_mutation | 16  | 0.08081440625   | 0.03125     |
-| Unknown      | Nonsynonymous_mutation | 19  | 0.0808270684211 | 0.0357143   |
-| Unknown      | Synonymous_mutation    | 20  | 0.251785705     | 0.0714286   |
-| Water        | Nonsynonymous_mutation | 15  | 0.09298244      | 0.0526316   |
-| Water        | Synonymous_mutation    | 18  | 0.269736877778  | 0.0789473   |
-| Wine         | Synonymous_mutation    | 31  | 0.108155583871  | 0.00806452  |
-| Wine         | Nonsynonymous_mutation | 32  | 0.0402662403125 | 0.007056455 |
-
-| group        | type                   | num | highfreq_mean  | highfreq_median |
-|--------------|------------------------|-----|----------------|-----------------|
-| Bakery       | Synonymous_mutation    | 11  | 0.420147463636 | 0.364865        |
-| Bakery       | Nonsynonymous_mutation | 11  | 0.127097236364 | 0.0810811       |
-| Beer         | Nonsynonymous_mutation | 9   | 0.1447334      | 0.059322        |
-| Beer         | Synonymous_mutation    | 15  | 0.357907153333 | 0.245763        |
-| Bioethanol   | Nonsynonymous_mutation | 4   | 0.25462965     | 0.2592595       |
-| Bioethanol   | Synonymous_mutation    | 8   | 0.6319441375   | 0.7129625       |
-| Cider        | Nonsynonymous_mutation | 9   | 0.216298922222 | 0.205882        |
-| Cider        | Synonymous_mutation    | 8   | 0.4779411      | 0.3088235       |
-| Clinical     | Nonsynonymous_mutation | 7   | 0.202879742857 | 0.122642        |
-| Clinical     | Synonymous_mutation    | 13  | 0.333597338462 | 0.264423        |
-| Dairy        | Nonsynonymous_mutation | 4   | 0.5370369      | 0.583333        |
-| Dairy        | Synonymous_mutation    | 9   | 0.576954788889 | 0.740741        |
-| Distillery   | Nonsynonymous_mutation | 5   | 0.2586206      | 0.241379        |
-| Distillery   | Synonymous_mutation    | 13  | 0.446854769231 | 0.517241        |
-| Fermentation | Synonymous_mutation    | 15  | 0.474074073333 | 0.472222        |
-| Fermentation | Nonsynonymous_mutation | 5   | 0.34166664     | 0.25            |
-| Flower       | Synonymous_mutation    | 13  | 0.368131892308 | 0.214286        |
-| Flower       | Nonsynonymous_mutation | 5   | 0.23571424     | 0.107143        |
-| Fruit        | Nonsynonymous_mutation | 5   | 0.19148938     | 0.106383        |
-| Fruit        | Synonymous_mutation    | 16  | 0.30563418125  | 0.209528        |
-| Human        | Nonsynonymous_mutation | 6   | 0.49193555     | 0.564516        |
-| Human        | Synonymous_mutation    | 10  | 0.6467743      | 0.806452        |
-| Industrial   | Nonsynonymous_mutation | 9   | 0.130158811111 | 0.1             |
-| Industrial   | Synonymous_mutation    | 14  | 0.344387714286 | 0.2416665       |
-| Insect       | Nonsynonymous_mutation | 7   | 0.142857142857 | 0.05            |
-| Insect       | Synonymous_mutation    | 26  | 0.243269230769 | 0.125           |
-| Lab_strain   | Synonymous_mutation    | 8   | 0.625          | 0.5             |
-| Lab_strain   | Nonsynonymous_mutation | 1   | 0.5            | 0.5             |
-| Nature       | Nonsynonymous_mutation | 7   | 0.145846857143 | 0.0882353       |
-| Nature       | Synonymous_mutation    | 16  | 0.28485573125  | 0.216346        |
-| Palm_wine    | Nonsynonymous_mutation | 5   | 0.29000008     | 0.166667        |
-| Palm_wine    | Synonymous_mutation    | 17  | 0.426470629412 | 0.183333        |
-| Probiotic    | Nonsynonymous_mutation | 3   | 0.5            | 0.5             |
-| Probiotic    | Synonymous_mutation    | 3   | 1              | 1               |
-| Sake         | Synonymous_mutation    | 9   | 0.988179777778 | 1               |
-| Sake         | Nonsynonymous_mutation | 2   | 0.569149       | 0.569149        |
-| Soil         | Synonymous_mutation    | 19  | 0.268005552632 | 0.184211        |
-| Soil         | Nonsynonymous_mutation | 8   | 0.157894775    | 0.0789474       |
-| Tree         | Synonymous_mutation    | 18  | 0.318424888889 | 0.230469        |
-| Tree         | Nonsynonymous_mutation | 4   | 0.250992       | 0.09375         |
-| Unknown      | Nonsynonymous_mutation | 6   | 0.1904762      | 0.142857        |
-| Unknown      | Synonymous_mutation    | 11  | 0.435064927273 | 0.428571        |
-| Water        | Synonymous_mutation    | 16  | 0.3001645125   | 0.131579        |
-| Water        | Nonsynonymous_mutation | 11  | 0.117224854545 | 0.0789474       |
-| Wine         | Nonsynonymous_mutation | 6   | 0.169054333333 | 0.09173405      |
-| Wine         | Synonymous_mutation    | 4   | 0.75201625     | 0.947581        |
-
-- The mean and median of all mutation fitness
+- Mean and median of fitness
 
 ```bash
 cd ~/data/yeast/vcf
 
-# fitness mean and median
-# uniq snps from different groups
-# snps existent in wild groups
-cat all.vcf.tsv |
-    tsv-uniq -f 1,2,3,4 |
-    tsv-summarize -g 9 --count --mean 8 --median 8 |
-    sed '1itype\tnum\tfit_mean\tfit_median' |
-    mlr --itsv --omd cat
-
-# snps nonexistent in wild groups
-cat other.vcf.tsv |
-    tsv-summarize -g 6 --count --mean 5 --median 5 |
-    sed '1itype\tnum\tfit_mean\tfit_median' |
-    mlr --itsv --omd cat
-
-# distribution of fitness
-# all unique detected snps
-cat all.vcf.tsv |
-    tsv-uniq -f 1,2,3,4 |
-    tsv-select -f 8,9 |
-    sed '1ifit\ttype' \
-    > ../results/dist.fit.tsv
-
+# fitness mean and median among groups
+# plot
 Rscript -e '
     library(ggplot2)
     library(readr)
     library(plyr)
     args <- commandArgs(T)
-    fit <- read_tsv(args[1], show_col_types = FALSE)
-    fitv <- ddply(fit, "type", summarise, grp.mean = mean(fit))
-    p <- ggplot(fit, aes(x = fit, fill = type)) +
+    data <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(data, aes(x = fit, fill = type)) +
          geom_histogram(alpha = 0.5, position = "identity") +
-         geom_vline(data = fitv, aes(xintercept = grp.mean, color = type), linetype = "dashed")
-    ggsave(p, height = 6, width = 12, file = "../results/dist.fit.pdf")
-' ../results/dist.fit.tsv
+         facet_wrap(~group)
+    ggsave(p, height = 6, width = 12, file = "../results/group.fit.pdf")
+' ../results/group.tsv
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    data <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(data, aes(x = type, y = fit, fill = type))+
+         geom_boxplot() +
+         theme(axis.text.x = element_text(angle = 315)) +
+         facet_grid(~group)
+    ggsave(p, height = 6, width = 15, file = "../results/group.fit.box.pdf")
+' ../results/group.tsv
+
+# count
+cat group.snp.tsv |
+    tsv-summarize -g 9,11 --mean 8 --median 8 --count |
+    sed '1itype\tgroup\tfit_mean\tfit_median\tcount' |
+    mlr --itsv --omd cat
+```
+
+| type                   | group        | fit_mean       | fit_median     | count |
+|------------------------|--------------|----------------|----------------|-------|
+| Synonymous_mutation    | Bakery       | 0.984752522254 | 0.98724477975  | 16    |
+| Nonsynonymous_mutation | Bakery       | 0.987965685909 | 0.98797192625  | 15    |
+| Synonymous_mutation    | Beer         | 0.984413066858 | 0.98658440575  | 35    |
+| Nonsynonymous_mutation | Beer         | 0.989262805563 | 0.9917333615   | 30    |
+| Synonymous_mutation    | Bioethanol   | 0.986866381265 | 0.993277023    | 13    |
+| Nonsynonymous_mutation | Bioethanol   | 0.986384899024 | 0.987598707    | 9     |
+| Nonsynonymous_mutation | Cider        | 0.985603878747 | 0.98747437925  | 9     |
+| Synonymous_mutation    | Cider        | 0.984326260382 | 0.98386353025  | 11    |
+| Nonsynonymous_mutation | Clinical     | 0.988420517561 | 0.9884840435   | 24    |
+| Synonymous_mutation    | Clinical     | 0.985689947094 | 0.987584157281 | 34    |
+| Nonsynonymous_mutation | Dairy        | 0.985667778537 | 0.986215389375 | 6     |
+| Synonymous_mutation    | Dairy        | 0.99061800815  | 0.9940471665   | 13    |
+| Nonsynonymous_mutation | Distillery   | 0.990814705196 | 0.99272248975  | 14    |
+| Synonymous_mutation    | Distillery   | 0.986273908723 | 0.98744413375  | 26    |
+| Synonymous_mutation    | Fermentation | 0.984257335963 | 0.986211182614 | 24    |
+| Nonsynonymous_mutation | Fermentation | 0.987159823702 | 0.987689188267 | 13    |
+| Synonymous_mutation    | Flower       | 0.984196724407 | 0.987483555625 | 14    |
+| Nonsynonymous_mutation | Flower       | 0.987912223069 | 0.987560714706 | 6     |
+| Synonymous_mutation    | Fruit        | 0.987341498499 | 0.98857693925  | 40    |
+| Nonsynonymous_mutation | Fruit        | 0.989193583458 | 0.987521812    | 20    |
+| Nonsynonymous_mutation | Human        | 0.985104257254 | 0.987109888837 | 15    |
+| Synonymous_mutation    | Human        | 0.984297448669 | 0.982130373375 | 16    |
+| Nonsynonymous_mutation | Industrial   | 0.987222439578 | 0.987791252625 | 14    |
+| Synonymous_mutation    | Industrial   | 0.986468714323 | 0.98807367875  | 19    |
+| Nonsynonymous_mutation | Insect       | 0.991944864397 | 0.989291307    | 10    |
+| Synonymous_mutation    | Insect       | 0.985738207509 | 0.9889152495   | 30    |
+| Synonymous_mutation    | Lab_strain   | 0.981781640668 | 0.987104177062 | 9     |
+| Nonsynonymous_mutation | Lab_strain   | 0.9838339215   | 0.9838339215   | 2     |
+| Synonymous_mutation    | Nature       | 0.98789692653  | 0.98955296025  | 58    |
+| Nonsynonymous_mutation | Nature       | 0.989460055308 | 0.990928906    | 29    |
+| Synonymous_mutation    | Palm_wine    | 0.98571137937  | 0.98795345925  | 31    |
+| Nonsynonymous_mutation | Palm_wine    | 0.987947942565 | 0.987598707    | 15    |
+| Nonsynonymous_mutation | Probiotic    | 0.992545284917 | 0.9943413815   | 3     |
+| Synonymous_mutation    | Probiotic    | 0.973690638649 | 0.97665198325  | 3     |
+| Synonymous_mutation    | Sake         | 0.983589069915 | 0.984590859208 | 14    |
+| Nonsynonymous_mutation | Sake         | 0.984269561988 | 0.9809705645   | 3     |
+| Synonymous_mutation    | Soil         | 0.987892931407 | 0.991103581    | 21    |
+| Nonsynonymous_mutation | Soil         | 0.991429979907 | 0.99420745     | 15    |
+| Synonymous_mutation    | Tree         | 0.98577578033  | 0.9880641375   | 45    |
+| Nonsynonymous_mutation | Tree         | 0.987213133054 | 0.987303140125 | 18    |
+| Nonsynonymous_mutation | Unknown      | 0.988712827819 | 0.98797192625  | 19    |
+| Synonymous_mutation    | Unknown      | 0.985133560791 | 0.9877505665   | 23    |
+| Nonsynonymous_mutation | Water        | 0.98799604383  | 0.988614516    | 18    |
+| Synonymous_mutation    | Water        | 0.98662720023  | 0.988260569875 | 18    |
+| Synonymous_mutation    | Wine         | 0.987165814852 | 0.98913000425  | 38    |
+| Nonsynonymous_mutation | Wine         | 0.98840118878  | 0.99077134075  | 35    |
+
+- Mean and median of frequencies
+
+```bash
+cd ~/data/yeast/vcf
 
 # plot
-cat all.vcf.tsv |
-    tsv-uniq -f 1,2,3,4 |
-    tsv-select -f 8,9 |
-    awk '{print ("yes\t" $0)}' |
-    perl -nla -e '
-        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Non.+$/N_mut/;
-        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Sy.+$/S_mut/;
-        ' |
-    sed '1iexist\tfit\ttype' \
-    > ../results/all.fit.tsv
- 
-cat other.vcf.tsv |
-    tsv-filter --str-ne 6:Nonsense_mutation |
-    tsv-select -f 5,6 |
-    awk '{print ("no\t" $0)}' |
-    perl -nla -e '
-        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Non.+$/N_mut/;
-        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Sy.+$/S_mut/;
-        ' \
-    >> ../results/all.fit.tsv
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    library(plyr)
+    args <- commandArgs(T)
+    data <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(data, aes(x = freq, fill = type)) +
+         geom_histogram(alpha = 0.5, position = "identity") +
+         facet_wrap(~group)
+    ggsave(p, height = 6, width = 12, file = "../results/group.freq.pdf")
+' ../results/group.tsv
 
 Rscript -e '
-library(ggplot2)
-library(readr)
-args <- commandArgs(T)
-fit <- read_tsv(args[1], show_col_types = FALSE)
-p <- ggplot(fit, aes(x = type, y = fit, fill = type)) +
-     geom_boxplot() +
-     facet_grid(~exist) +
-     ylim(0.96, 1.02) +
-     theme(axis.text.x = element_text(angle = 315))
-ggsave(p, height = 6, width = 15, file = "../results/all.fit.pdf")
-' ../results/all.fit.tsv
+    library(ggplot2)
+    library(readr)
+    args <- commandArgs(T)
+    data <- read_tsv(args[1], show_col_types = FALSE)
+    p <- ggplot(data, aes(x = type, y = freq, fill = type))+
+         geom_boxplot() +
+         theme(axis.text.x = element_text(angle = 315)) +
+         facet_grid(~group)
+    ggsave(p, height = 6, width = 15, file = "../results/group.freq.box.pdf")
+' ../results/group.tsv
+
+# count
+cat group.snp.tsv |
+    tsv-summarize -g 9,11 --mean 5 --median 5 --count |
+    sed '1itype\tgroup\tfreq_mean\tfreq_median\tcount' |
+    mlr --itsv --omd cat
 ```
 
-| type                   | num | fit_mean       | fit_median     |
-|------------------------|-----|----------------|----------------|
-| Synonymous_mutation    | 136 | 0.988034235352 | 0.98874490225  |
-| Nonsynonymous_mutation | 112 | 0.988007605256 | 0.988724384625 |
+| type                   | group        | freq_mean       | freq_median | count |
+|------------------------|--------------|-----------------|-------------|-------|
+| Synonymous_mutation    | Bakery       | 0.29983110625   | 0.2027025   | 16    |
+| Nonsynonymous_mutation | Bakery       | 0.09770914      | 0.0675676   | 15    |
+| Synonymous_mutation    | Beer         | 0.166705979429  | 0.0423729   | 35    |
+| Nonsynonymous_mutation | Beer         | 0.0589567486667 | 0.0338983   | 30    |
+| Synonymous_mutation    | Bioethanol   | 0.4059827       | 0.185185    | 13    |
+| Nonsynonymous_mutation | Bioethanol   | 0.148148177778  | 0.0555556   | 9     |
+| Nonsynonymous_mutation | Cider        | 0.216298922222  | 0.205882    | 9     |
+| Synonymous_mutation    | Cider        | 0.361463854545  | 0.117647    | 11    |
+| Nonsynonymous_mutation | Clinical     | 0.0712669529167 | 0.0211162   | 24    |
+| Synonymous_mutation    | Clinical     | 0.136218309118  | 0.02816965  | 34    |
+| Nonsynonymous_mutation | Dairy        | 0.370370266667  | 0.1944443   | 6     |
+| Synonymous_mutation    | Dairy        | 0.410826238462  | 0.111111    | 13    |
+| Nonsynonymous_mutation | Distillery   | 0.113300485714  | 0.0344828   | 14    |
+| Synonymous_mutation    | Distillery   | 0.239342519231  | 0.0603448   | 26    |
+| Synonymous_mutation    | Fermentation | 0.307291675     | 0.1875001   | 24    |
+| Nonsynonymous_mutation | Fermentation | 0.146367523077  | 0.0277778   | 13    |
+| Synonymous_mutation    | Flower       | 0.3571429       | 0.214286    | 14    |
+| Nonsynonymous_mutation | Flower       | 0.202380916667  | 0.0892858   | 6     |
+| Synonymous_mutation    | Fruit        | 0.1377848175    | 0.0425532   | 40    |
+| Nonsynonymous_mutation | Fruit        | 0.065957455     | 0.02659575  | 20    |
+| Nonsynonymous_mutation | Human        | 0.209677433333  | 0.0322581   | 15    |
+| Synonymous_mutation    | Human        | 0.4153226375    | 0.177419    | 16    |
+| Nonsynonymous_mutation | Industrial   | 0.0955782714286 | 0.06904765  | 14    |
+| Synonymous_mutation    | Industrial   | 0.2616541       | 0.183333    | 19    |
+| Nonsynonymous_mutation | Insect       | 0.11            | 0.05        | 10    |
+| Synonymous_mutation    | Insect       | 0.2225          | 0.125       | 30    |
+| Synonymous_mutation    | Lab_strain   | 0.611111111111  | 0.5         | 9     |
+| Nonsynonymous_mutation | Lab_strain   | 0.5             | 0.5         | 2     |
+| Synonymous_mutation    | Nature       | 0.0921880668966 | 0.0192308   | 58    |
+| Nonsynonymous_mutation | Nature       | 0.0514511068966 | 0.0192308   | 29    |
+| Synonymous_mutation    | Palm_wine    | 0.258064529032  | 0.0666667   | 31    |
+| Nonsynonymous_mutation | Palm_wine    | 0.12222224      | 0.0333333   | 15    |
+| Nonsynonymous_mutation | Probiotic    | 0.5             | 0.5         | 3     |
+| Synonymous_mutation    | Probiotic    | 1               | 1           | 3     |
+| Synonymous_mutation    | Sake         | 0.6398177       | 0.9787235   | 14    |
+| Nonsynonymous_mutation | Sake         | 0.386524866667  | 0.148936    | 3     |
+| Synonymous_mutation    | Soil         | 0.247493747619  | 0.0921053   | 21    |
+| Nonsynonymous_mutation | Soil         | 0.10087722      | 0.0789474   | 15    |
+| Synonymous_mutation    | Tree         | 0.143515788889  | 0.03125     | 45    |
+| Nonsynonymous_mutation | Tree         | 0.0744391944444 | 0.03125     | 18    |
+| Nonsynonymous_mutation | Unknown      | 0.0817669210526 | 0.0357143   | 19    |
+| Synonymous_mutation    | Unknown      | 0.221273278261  | 0.0357143   | 23    |
+| Nonsynonymous_mutation | Water        | 0.0862572888889 | 0.0526316   | 18    |
+| Synonymous_mutation    | Water        | 0.269736877778  | 0.0789473   | 18    |
+| Synonymous_mutation    | Wine         | 0.0897177571053 | 0.00806452  | 38    |
+| Nonsynonymous_mutation | Wine         | 0.0366996411429 | 0.00403226  | 35    |
 
-
-| type                   | num  | fit_mean       | fit_median   |
-|------------------------|------|----------------|--------------|
-| Nonsynonymous_mutation | 5929 | 0.984781866716 | 0.9879315165 |
-| Synonymous_mutation    | 1665 | 0.98783557355  | 0.9887744535 |
-| Nonsense_mutation      | 162  | 0.935173157813 | 0.9403812345 |
+- Linear analysis
 
 ```bash
 cd ~/data/yeast/vcf
 
-cat other.vcf.tsv |
-    tsv-filter --str-ne 6:Nonsense_mutation |
-    tsv-select -f 5,6 |
-    awk '{print ("other\t" $0)}' \
-    > ../results/group.fit.tsv
-
-cat all.vcf.tsv |
-    tsv-select -f 11,8,9 \
-    >> ../results/group.fit.tsv
-
-cat ../results/group.fit.tsv |
-    perl -nla -e '
-        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Non.+$/N_mut/;
-        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Sy.+$/S_mut/;
-    ' |
-    sed '1igroup\tfit\ttype' \
-    > tmp && \
-    mv tmp ../results/group.fit.tsv
-
 Rscript -e '
 library(ggplot2)
 library(readr)
 args <- commandArgs(T)
-fit <- read_tsv(args[1], show_col_types = FALSE)
-p <- ggplot(fit, aes(x = type, y = fit, fill = type)) +
-     geom_boxplot() +
-     facet_grid(~group) +
-     ylim(0.96, 1.02) +
-     theme(axis.text.x = element_text(angle = 315))
-ggsave(p, height = 6, width = 15, file = "../results/group.fit.pdf")
-' ../results/group.fit.tsv
-
-cat all.vcf.tsv |
-    tsv-filter --ge 5:0.05 |
-    tsv-select -f 11,8,9 |
-    perl -nla -e '
-        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Non.+$/N_mut/;
-        print qq($F[0]\t$F[1]\t$F[2]) if $F[2] =~ s/^Sy.+$/S_mut/;
-        ' |
-    sed '1igroup\tfit\ttype' \
-    > ../results/group.highfreq.fit.tsv
-
-Rscript -e '
-library(ggplot2)
-library(readr)
-args <- commandArgs(T)
-fit <- read_tsv(args[1], show_col_types = FALSE)
-p <- ggplot(fit, aes(x = type, y = fit, fill = type)) +
-     geom_boxplot() +
-     facet_grid(~group) +
-     theme(axis.text.x = element_text(angle = 315))
-ggsave(p, height = 6, width = 15, file = "../results/group.highfreq.fit.pdf")
-' ../results/group.highfreq.fit.tsv
+data <- read_tsv(args[1], show_col_types = FALSE)
+p <- ggplot(data, aes(x = freq, y = fit, color = group)) +
+     geom_point() +
+     geom_smooth(method = "lm") +
+     facet_wrap(~group)
+ggsave(p, height = 6, width = 15, file = "../results/group.lm.pdf")
+' ../results/group.tsv
 ```
 
 ### Chi-square
@@ -1445,40 +1205,6 @@ echo -e "$raw1\t$raw2" |
 
 #data:  x
 #X-squared = 145.2, df = 1, p-value < 2.2e-16
-```
-
-### Linear regression
-
-```bash
-cd ~/data/yeast/vcf
-
-cat all.vcf.tsv |
-    tsv-select -f 11,5,8 |
-    sed '1igroup\tfreq\tfit' \
-    > ../results/group.freq_fit.tsv
-
-Rscript -e '
-library(ggplot2)
-library(readr)
-args <- commandArgs(T)
-data <- read_tsv(args[1], show_col_types = FALSE)
-p <- ggplot(data, aes(x = freq, y = fit)) +
-     geom_point() +
-     geom_smooth(method = "lm")
-ggsave(p, height = 6, width = 8, file = "../results/group.freq_fit.mixed.pdf")
-' ../results/group.freq_fit.tsv
-
-Rscript -e '
-library(ggplot2)
-library(readr)
-args <- commandArgs(T)
-data <- read_tsv(args[1], show_col_types = FALSE)
-p <- ggplot(data, aes(x = freq, y = fit, color = group)) +
-     geom_point() +
-     geom_smooth(method = "lm") +
-     facet_wrap(~group)
-ggsave(p, height = 6, width = 15, file = "../results/group.freq_fit.pdf")
-' ../results/group.freq_fit.tsv
 ```
 
 ## Genome alignment
