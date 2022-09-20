@@ -207,8 +207,8 @@ cat vcf/random.snp.tsv | wc -l
 
 # diff fit
 cat vcf/random.snp.tsv | tsv-filter --ge 5:1.01 > vcf/random.up.tsv
-cat vcf/random.snp.tsv | tsv-filter --le 5:0.99 > vcf/random.down.tsv
-cat vcf/random.snp.tsv | tsv-filter --gt 5:0.99 --lt 5:1.01 > vcf/random.neither.tsv
+cat vcf/random.snp.tsv | tsv-filter --le 5:0.98 > vcf/random.down.tsv
+cat vcf/random.snp.tsv | tsv-filter --gt 5:0.98 --lt 5:1.01 > vcf/random.neither.tsv
 
 for change in {up,down,neither}
 do
@@ -551,18 +551,11 @@ cat random.wild.snp.tsv |
     sed '1itype\tfit_mean\tfit_median\tcount' |
     mlr --itsv --omd cat
 
-# muts in wild (freq >= 0.05)
+# muts in wild (MAF >= 0.05)
 cat random.wild.snp.tsv |
     tsv-filter --ge 8:0.05 |
     tsv-summarize -g 6 --mean 5 --median 5 --count |
     sed '1itype\tfit_mean\tfit_median\tcount' |
-    mlr --itsv --omd cat
-
-# muts count (freq >= 0.1)
-cat random.wild.snp.tsv |
-    tsv-filter --ge 8:0.1 |
-    tsv-summarize -g 6 --count |
-    sed '1itype\tcount' |
     mlr --itsv --omd cat
 
 cat random.not_wild.snp.tsv |
@@ -578,19 +571,12 @@ Mutations fitness in wild:
 | Nonsynonymous_mutation | 0.988545219123 | 0.98948772825 | 130   |
 | Synonymous_mutation    | 0.987720205444 | 0.988143842   | 152   |
 
-High freq (>= 0.05):
+High freq (MAF >= 0.05):
 
-| type                   | fit_mean       | fit_median    | count |
-|------------------------|----------------|---------------|-------|
-| Synonymous_mutation    | 0.985455825819 | 0.98603116925 | 13    |
-| Nonsynonymous_mutation | 0.988684188175 | 0.990983907   | 7     |
-
-Freq > 0.1 count:
-
-| type                   | count |
-|------------------------|-------|
-| Synonymous_mutation    | 9     |
-| Nonsynonymous_mutation | 2     |
+| type                   | fit_mean       | fit_median     | count |
+|------------------------|----------------|----------------|-------|
+| Synonymous_mutation    | 0.985407880533 | 0.987483555625 | 12    |
+| Nonsynonymous_mutation | 0.988684188175 | 0.990983907    | 7     |
 
 Not in wild:
 
@@ -614,7 +600,7 @@ cat random.wild.snp.tsv |
         print join("\t",@F) if $F[0] =~ s/^Nonsy.+$/N_mut/;
         print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
     ' |
-    sed '1itype\tgene\tfit\tfreq\texist' \
+    sed '1itype\tgene\tfit\tMAF\texist' \
     > ../results/all.tsv
 
 # other mutations
@@ -656,14 +642,25 @@ cat random.wild.snp.tsv |
         print join("\t",@F) if $F[0] =~ s/^Nonsy.+$/N_mut/;
         print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
     ' |
-    sed '1itype\tgene\tfit\tfreq' \
+    sed '1itype\tgene\tfit\tMAF' \
     > ../results/wild.tsv
 
-Rscript ../scripts/dis_freq.r \
-    -f ../results/wild.tsv -b 0.05 \
-    -o ../results/exist.freq.pdf
+# muts MAF >= 0.05
+cat random.wild.snp.tsv |
+    tsv-select -f 6,7,5,8 |
+    tsv-filter --ge 4:0.05 |
+    perl -nla -e '
+        print join("\t",@F) if $F[0] =~ s/^Nonsy.+$/N_mut/;
+        print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
+    ' |
+    sed '1itype\tgene\tfit\tMAF' \
+    > ../results/wild.high.tsv
 
-echo -e "type\tfit\tfreq" > ../results/change.tsv
+Rscript ../scripts/dis_maf.r \
+    -f ../results/wild.high.tsv -b 0.02 \
+    -o ../results/exist.high.maf.pdf
+
+echo -e "type\tfit\tMAF" > ../results/change.tsv
 
 for change in {up,down,neither}
 do
@@ -681,16 +678,36 @@ Rscript -e '
     library(plyr)
     args <- commandArgs(T)
     wild <- read_tsv(args[1], show_col_types = FALSE)
-    wildv <- ddply(wild, "type", summarise, grp.median = median(freq))
-    p <- ggplot(wild, aes(x = freq, fill = type)) +
-         geom_histogram(binwidth = 0.05, alpha = 0.5, position = "identity") +
+    wildv <- ddply(wild, "type", summarise, grp.median = median(MAF))
+    p <- ggplot(wild, aes(x = MAF, fill = type)) +
+         geom_histogram(binwidth = 0.02, alpha = 0.5, position = "identity") +
          geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
-    plm <- ggplot(wild, aes(x = freq, y = fit)) +
+    plm <- ggplot(wild, aes(x = MAF, y = fit)) +
            geom_point() +
            geom_smooth(method = "lm")
-    ggsave(p, height = 6, width = 6, file = "../results/change.freq.pdf")
-    ggsave(plm, height = 6, width = 6, file = "../results/change.freq.lm.pdf")
+    ggsave(p, height = 6, width = 6, file = "../results/change.maf.pdf")
+    ggsave(plm, height = 6, width = 6, file = "../results/change.maf.lm.pdf")
 ' ../results/change.tsv
+
+# MAF >= 0.05
+cat ../results/change.tsv | tsv-filter -H --ge MAF:0.05 > ../results/change.high.tsv
+
+Rscript -e '
+    library(ggplot2)
+    library(readr)
+    library(plyr)
+    args <- commandArgs(T)
+    wild <- read_tsv(args[1], show_col_types = FALSE)
+    wildv <- ddply(wild, "type", summarise, grp.median = median(MAF))
+    p <- ggplot(wild, aes(x = MAF, fill = type)) +
+         geom_histogram(binwidth = 0.02, alpha = 0.5, position = "identity") +
+         geom_vline(data = wildv, aes(xintercept = grp.median, color = type), linetype = "dashed")
+    plm <- ggplot(wild, aes(x = MAF, y = fit)) +
+           geom_point() +
+           geom_smooth(method = "lm")
+    ggsave(p, height = 6, width = 6, file = "../results/change.high.maf.pdf")
+    ggsave(plm, height = 6, width = 6, file = "../results/change.high.maf.lm.pdf")
+' ../results/change.high.tsv
 ```
 
 ## Split strains from 1002 genomes project into subpopulations
@@ -897,7 +914,7 @@ cat group.snp.tsv |
         print join("\t",@F) if $F[0] =~ s/^Non.+$/N_mut/;
         print join("\t",@F) if $F[0] =~ s/^Sy.+$/S_mut/;
     ' |
-    sed '1itype\tgene\tfit\tfreq\tgroup' \
+    sed '1itype\tgene\tfit\tMAF\tgroup' \
     > ../results/group.tsv
 
 mkdir ~/data/yeast/vcf/snp
@@ -919,7 +936,7 @@ cat group.snp.tsv |
         cat group.snp.tsv |
         tsv-filter --str-eq 1:{1} --eq 2:{2} --str-eq 3:{3} --str-eq 4:{4} |
         tsv-select -f 11,9,5 |
-        sed "1igroup\ttype\tfreq" \
+        sed "1igroup\ttype\tMAF" \
         > snp/{1}_{2}_{3}_{4}.tsv
     '
 
@@ -933,9 +950,9 @@ do
         args <- commandArgs(T)
         freq <- read_tsv(args[1], show_col_types = FALSE)
         save <- paste0(args[1], ".pdf")
-        p <- ggplot(freq, aes(x = reorder(group, -freq), y = freq)) +
+        p <- ggplot(freq, aes(x = reorder(group, -MAF), y = MAF)) +
              geom_bar(stat="identity") +
-             geom_text(aes(label = freq), vjust=1.6, color="white",
+             geom_text(aes(label = MAF), vjust=1.6, color="white",
                        position = position_dodge(0.9), size=3.5)+
              theme(axis.text.x = element_text(angle = 315))
         ggsave(p, height = 6, width = 10, file = save)
@@ -1078,10 +1095,10 @@ Rscript -e '
     library(plyr)
     args <- commandArgs(T)
     data <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(data, aes(x = freq, fill = type)) +
+    p <- ggplot(data, aes(x = MAF, fill = type)) +
          geom_histogram(alpha = 0.5, position = "identity") +
          facet_wrap(~group)
-    ggsave(p, height = 6, width = 12, file = "../results/group.freq.pdf")
+    ggsave(p, height = 6, width = 12, file = "../results/group.MAF.pdf")
 ' ../results/group.tsv
 
 Rscript -e '
@@ -1089,11 +1106,11 @@ Rscript -e '
     library(readr)
     args <- commandArgs(T)
     data <- read_tsv(args[1], show_col_types = FALSE)
-    p <- ggplot(data, aes(x = type, y = freq, fill = type))+
+    p <- ggplot(data, aes(x = type, y = MAF, fill = type))+
          geom_boxplot() +
          theme(axis.text.x = element_text(angle = 315)) +
          facet_grid(~group)
-    ggsave(p, height = 6, width = 15, file = "../results/group.freq.box.pdf")
+    ggsave(p, height = 6, width = 15, file = "../results/group.MAF.box.pdf")
 ' ../results/group.tsv
 
 # count
@@ -1162,7 +1179,7 @@ library(ggplot2)
 library(readr)
 args <- commandArgs(T)
 data <- read_tsv(args[1], show_col_types = FALSE)
-p <- ggplot(data, aes(x = freq, y = fit, color = group)) +
+p <- ggplot(data, aes(x = MAF, y = fit, color = group)) +
      geom_point() +
      geom_smooth(method = "lm") +
      facet_wrap(~group)
@@ -1173,7 +1190,7 @@ ggsave(p, height = 6, width = 15, file = "../results/group.lm.pdf")
 ### Rank of subpopulations from different aspects
 
 ```bash
-
+UPDATE SOON
 ```
 
 ### Chi-square
