@@ -25,14 +25,14 @@ if (is.null(opt$file)){
     stop ("At least one argument must be supplied (input file) .n", call.=FALSE)
 }
 wild <- read_tsv(opt$file, col_names = T, show_col_types = FALSE)
-wildfreq <- ddply(wild, "type", summarise, grp.median = median(freq))
+wildfreq <- ddply(wild, "type", summarise, grp.median = median(MAF))
 
 if (is.null(opt$binwidth)){
-    pfreq <- ggplot(wild, aes(x = freq, fill = type)) +
+    pfreq <- ggplot(wild, aes(x = MAF, fill = type)) +
              geom_histogram(alpha = 0.5, position = "identity") +
              geom_vline(data = wildfreq, aes(xintercept = grp.median, color = type), linetype = "dashed")
 } else {
-    pfreq <- ggplot(wild, aes(x = freq, fill = type)) +
+    pfreq <- ggplot(wild, aes(x = MAF, fill = type)) +
              geom_histogram(binwidth = opt$binwidth, alpha = 0.5, position = "identity") +
              geom_vline(data = wildfreq, aes(xintercept = grp.median, color = type), linetype = "dashed")
 }
