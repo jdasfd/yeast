@@ -242,17 +242,18 @@ cd ~/data/yeast
 # get all SNPs
 # bcftools norm to split mutations within a position
 # vt decompose_blocksub will automatically change them to 1 base
-bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 8 |
+bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 6 |
+    bcftools +fill-tags -Ov -- -t all |
     bcftools norm -m -both |
     vt decompose_blocksub - |
     bcftools view -V indels |
     bcftools query -f \
-    '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
+    '%CHROM\t%POS\t%REF\t%ALT\t%MAF{1}\t%AC{1}\t%AN{1}\n' \
     -o vcf/all.snp.tsv
 
 bash scripts/vcf_num.sh vcf/all.snp.tsv
 
-# freq >= 0.5
+# MAF >= 0.05
 cat vcf/all.snp.tsv | tsv-filter --ge 5:0.05 > vcf/all.high.snp.tsv
 
 bash scripts/vcf_num.sh vcf/all.high.snp.tsv
@@ -266,15 +267,15 @@ bash scripts/vcf_num.sh vcf/all.high.snp.tsv
 | Two_SNPs   | 82429   |
 | Three_SNPs | 2147    |
 
-SNP that freq >= 0.05:
+SNP that MAF >= 0.05:
 
 | Mut        | Num    |
 |------------|--------|
-| All        | 139181 |
-| Pos        | 138440 |
-| One_SNP    | 137704 |
-| Two_SNPs   | 731    |
-| Three_SNPs | 5      |
+| All        | 148223 |
+| Pos        | 134512 |
+| One_SNP    | 121438 |
+| Two_SNPs   | 12437  |
+| Three_SNPs | 637    |
 
 ### SNPs in gene regions
 
@@ -317,16 +318,17 @@ cat gene/gene_all.bed | wc -l
 # 6579 genes in total
 
 bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 6 -R gene/gene_all.bed |
+    bcftools +fill-tags -Ov -- -t all |
     bcftools norm -m -both |
     vt decompose_blocksub - |
     bcftools view -V indels |
     bcftools query -f \
-    '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
+    '%CHROM\t%POS\t%REF\t%ALT\t%MAF{1}\t%AC{1}\t%AN{1}\n' \
     -o vcf/gene_all.snp.tsv
 
 bash scripts/vcf_num.sh vcf/gene_all.snp.tsv
 
-# freq >= 0.5
+# MAF >= 0.05
 cat vcf/gene_all.snp.tsv | tsv-filter --ge 5:0.05 > vcf/gene_all.high.snp.tsv
 
 bash scripts/vcf_num.sh vcf/gene_all.high.snp.tsv
@@ -340,15 +342,15 @@ bash scripts/vcf_num.sh vcf/gene_all.high.snp.tsv
 | Two_SNPs   | 45004   |
 | Three_SNPs | 917     |
 
-SNP that freq >= 0.05:
+SNP that MAF >= 0.05:
 
 | Mut        | Num   |
 |------------|-------|
-| All        | 82941 |
-| Pos        | 82630 |
-| One_SNP    | 82319 |
-| Two_SNPs   | 311   |
-| Three_SNPs |       |
+| All        | 85258 |
+| Pos        | 78721 |
+| One_SNP    | 72416 |
+| Two_SNPs   | 6073  |
+| Three_SNPs | 232   |
 
 ### SNPs not in gene regions
 
@@ -361,7 +363,7 @@ cat vcf/all.snp.tsv | tsv-join -k 1,2,3,4 -e \
 
 bash scripts/vcf_num.sh vcf/not_gene.snp.tsv
 
-# freq >= 0.5
+# MAF >= 0.05
 cat vcf/not_gene.snp.tsv | tsv-filter --ge 5:0.05 > vcf/not_gene.high.snp.tsv
 
 bash scripts/vcf_num.sh vcf/not_gene.high.snp.tsv
@@ -379,11 +381,11 @@ SNP that freq >= 0.05:
 
 | Mut        | Num   |
 |------------|-------|
-| All        | 56240 |
-| Pos        | 55810 |
-| One_SNP    | 55385 |
-| Two_SNPs   | 420   |
-| Three_SNPs | 5     |
+| All        | 62965 |
+| Pos        | 55791 |
+| One_SNP    | 49022 |
+| Two_SNPs   | 6364  |
+| Three_SNPs | 405   |
 
 ### SNPs in selected 21 genes
 
@@ -419,16 +421,17 @@ cat gene/gene.blast.tsv |
      > gene/gene_21.bed
 
 bcftools view ../mrna-structure/vcf/1011Matrix.gvcf.gz -Ov --threads 6 -R gene/gene_21.bed |
+    bcftools +fill-tags -Ov -- -t all |
     bcftools norm -m -both |
     vt decompose_blocksub - |
     bcftools view -V indels |
     bcftools query -f \
-    '%CHROM\t%POS\t%REF\t%ALT\t%AF{1}\t%AC{1}\t%AN{1}\n' \
+    '%CHROM\t%POS\t%REF\t%ALT\t%MAF{1}\t%AC{1}\t%AN{1}\n' \
     -o vcf/gene_21.snp.tsv
 
 bash scripts/vcf_num.sh vcf/gene_21.snp.tsv
 
-# freq >= 0.5
+# MAF >= 0.05
 cat vcf/gene_21.snp.tsv | tsv-filter --ge 5:0.05 > vcf/gene_21.high.snp.tsv
 
 bash scripts/vcf_num.sh vcf/gene_21.high.snp.tsv
@@ -442,13 +445,13 @@ bash scripts/vcf_num.sh vcf/gene_21.high.snp.tsv
 | Two_SNPs   | 10  |
 | Three_SNPs |     |
 
-SNP that freq >= 0.05:
+SNP that MAF >= 0.05:
 
 | Mut        | Num |
 |------------|-----|
-| All        | 22  |
-| Pos        | 22  |
-| One_SNP    | 22  |
+| All        | 20  |
+| Pos        | 20  |
+| One_SNP    | 20  |
 | Two_SNPs   |     |
 | Three_SNPs |     |
 
@@ -1165,6 +1168,12 @@ p <- ggplot(data, aes(x = freq, y = fit, color = group)) +
      facet_wrap(~group)
 ggsave(p, height = 6, width = 15, file = "../results/group.lm.pdf")
 ' ../results/group.tsv
+```
+
+### Rank of subpopulations from different aspects
+
+```bash
+
 ```
 
 ### Chi-square
